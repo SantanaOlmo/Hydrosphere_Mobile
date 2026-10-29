@@ -1,8 +1,8 @@
 /**
- * Comprueba version.json / Releases y aplica actualización PWA en el dispositivo.
+ * Comprueba version.json / Releases. Actualiza la PWA en el dispositivo.
  */
 (function (global) {
-  const LOCAL_VERSION = "0.2.2";
+  const LOCAL_VERSION = "0.2.3";
   const GH_RELEASES =
     "https://api.github.com/repos/SantanaOlmo/Hydrosphere_Mobile/releases/latest";
 
@@ -28,44 +28,23 @@
     return res.json();
   }
 
-  /**
-   * Descarga/activa la nueva versión de la PWA y recarga.
-   * No abre GitHub: actualiza caché + service worker en el dispositivo.
-   */
   async function applyUpdate() {
     try {
       if ("serviceWorker" in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
           await reg.update().catch(() => {});
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
-          if (reg.installing) {
-            await new Promise((resolve) => {
-              reg.installing.addEventListener("statechange", function onState() {
-                if (this.state === "installed" || this.state === "activated") {
-                  this.removeEventListener("statechange", onState);
-                  resolve();
-                }
-              });
-              setTimeout(resolve, 2500);
-            });
-            if (reg.waiting) {
-              reg.waiting.postMessage({ type: "SKIP_WAITING" });
-            }
-          }
+          if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
         }
+      }
+      if (window.caches) {
         const keys = await caches.keys();
         await Promise.all(keys.map((k) => caches.delete(k)));
       }
     } catch {
-      /* seguimos con recarga dura */
+      /* recarga igual */
     }
-
-    const u = new URL(location.href);
-    u.searchParams.set("_hs_upd", String(Date.now()));
-    location.replace(u.toString());
+    location.replace("./index.html?v=" + Date.now());
   }
 
   async function checkForUpdates() {
@@ -73,39 +52,30 @@
       local: LOCAL_VERSION,
       remote: null,
       newer: false,
-      notes: "",
-      apkUrl: null,
       source: null,
     };
 
     try {
       const v = await fetchJson("./version.json");
       result.remote = v.version;
-      result.notes = v.notes || "";
       result.source = "version.json";
-      if (v.downloads && v.downloads.android_apk) {
-        result.apkUrl = v.downloads.android_apk;
-      }
       if (cmpSemver(v.version, LOCAL_VERSION) > 0) result.newer = true;
     } catch {
-      /* offline / file:// */
+      /* offline */
     }
 
     try {
       const rel = await fetchJson(GH_RELEASES);
       if (rel && rel.tag_name) {
-        const tag = rel.tag_name.replace(/^v/, "");
+        const tag = String(rel.tag_name).replace(/^v/, "");
         if (!result.remote || cmpSemver(tag, result.remote) >= 0) {
           result.remote = tag;
-          result.notes = rel.body || result.notes;
           result.source = "github-releases";
-          const apk = (rel.assets || []).find((a) => /\.apk$/i.test(a.name));
-          if (apk) result.apkUrl = apk.browser_download_url;
         }
         if (cmpSemver(tag, LOCAL_VERSION) > 0) result.newer = true;
       }
     } catch {
-      /* sin red o sin releases */
+      /* sin red */
     }
 
     if ("serviceWorker" in navigator) {

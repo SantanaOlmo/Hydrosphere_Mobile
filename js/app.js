@@ -312,24 +312,28 @@
     }
   }
 
-  function wireUpdateButton(info) {
+  function showUpdateBanner(remote) {
+    const banner = $("#update-banner");
     const btn = $("#update-download");
+    $("#update-text").textContent = remote
+      ? `Nueva versión ${remote}`
+      : "Nueva versión disponible";
     btn.textContent = "Actualizar";
-    btn.onclick = async () => {
+    btn.disabled = false;
+    btn.onclick = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
       btn.disabled = true;
       btn.textContent = "Actualizando…";
-      toast("Descargando e instalando la actualización…");
       try {
         await HydrosphereVersion.applyUpdate();
       } catch (err) {
         btn.disabled = false;
         btn.textContent = "Actualizar";
-        toast(err.message || "No se pudo actualizar", true);
+        toast("No se pudo actualizar", true);
       }
     };
-    if (info && info.notes) {
-      $("#update-text").textContent = `Nueva versión ${info.remote}: ${info.notes}`;
-    }
+    banner.classList.add("show");
   }
 
   async function checkUpdatesManual() {
@@ -338,31 +342,20 @@
     try {
       const info = await HydrosphereVersion.checkForUpdates();
       if (info.newer) {
-        status.textContent = `Nueva versión ${info.remote}. Pulsa Actualizar para instalarla aquí.`;
-        const banner = $("#update-banner");
-        banner.classList.add("show");
-        wireUpdateButton(info);
+        status.textContent = `Nueva versión ${info.remote}`;
+        showUpdateBanner(info.remote);
       } else {
-        status.textContent = `Estás al día (${info.local || HydrosphereVersion.LOCAL_VERSION}).`;
+        status.textContent = `Versión actual: ${info.local || HydrosphereVersion.LOCAL_VERSION}`;
       }
     } catch (err) {
-      status.textContent = `No se pudo comprobar: ${err.message || err}`;
+      status.textContent = "No se pudo comprobar";
     }
   }
 
   async function initVersionBanner() {
     const info = await HydrosphereVersion.checkForUpdates();
-    const banner = $("#update-banner");
-    if (info.newer) {
-      banner.classList.add("show");
-      $("#update-text").textContent = `Nueva versión ${info.remote}: ${info.notes || "Listo para instalar en este dispositivo."}`;
-      wireUpdateButton(info);
-    }
-    window.addEventListener("hs-sw-update", () => {
-      banner.classList.add("show");
-      $("#update-text").textContent = "Hay una versión nueva lista. Pulsa Actualizar para aplicarla.";
-      wireUpdateButton({ remote: "nueva", notes: "" });
-    });
+    if (info.newer) showUpdateBanner(info.remote);
+    window.addEventListener("hs-sw-update", () => showUpdateBanner(null));
   }
 
   function registerSW() {

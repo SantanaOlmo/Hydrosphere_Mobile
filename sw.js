@@ -1,5 +1,5 @@
 /* Hydrosphere Mobile — service worker (network-first shell + offline fallback) */
-const APP_VERSION = "0.2.2";
+const APP_VERSION = "0.2.3";
 const CACHE = `hydrosphere-mobile-v${APP_VERSION}`;
 const PRECACHE = [
   "./",

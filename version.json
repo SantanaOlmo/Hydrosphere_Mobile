@@ -1,9 +1,9 @@
 {
-  "version": "0.2.2",
-  "build": 4,
+  "version": "0.2.3",
+  "build": 5,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Actualizar instala la PWA en el dispositivo (ya no abre el repo). SW network-first.",
+  "notes": "Banner corto y Actualizar en el dispositivo.",
   "downloads": {
     "pwa": "./",
     "android_apk": null,

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d0f12" />
+    <title>Actualizar Hydrosphere</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        background: #0d0f12;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        padding: 24px;
+        text-align: center;
+      }
+      p {
+        color: #8ea0b5;
+        max-width: 20rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <p id="msg">Actualizando…</p>
+    </div>
+    <script>
+      (async function () {
+        const msg = document.getElementById("msg");
+        try {
+          if ("serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+          }
+          if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+          msg.textContent = "Listo.";
+        } catch (e) {
+          msg.textContent = "Listo.";
+        }
+        location.replace("./index.html?v=" + Date.now());
+      })();
+    </script>
+  </body>
+</html>
