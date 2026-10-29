@@ -1,12 +1,12 @@
-﻿{
-  "version": "0.3.5",
-  "build": 11,
+{
+  "version": "0.3.6",
+  "build": 12,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Modo legacy Dev UI (sin /diagnostics). SoftAP OK; 404 ESP mapeado.",
+  "notes": "Scroll consola + descarga path sin %2F. Navbar sin fondo/borde y botones centrados en altura.",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.5/hydrosphere-mobile-0.3.5-debug.apk",
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.6/hydrosphere-mobile-0.3.6-debug.apk",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

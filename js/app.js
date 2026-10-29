@@ -581,11 +581,18 @@
     window.addEventListener("resize", updateInstallFab);
   }
 
+  function encodeSpherePath(path) {
+    return String(path)
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+  }
+
   async function downloadFile(path) {
     try {
       await api.ensureSession();
       const cfg = HydrosphereSphereConfig.loadConfig();
-      const url = `${cfg.baseUrl.replace(/\/$/, "")}/api/v1/file?path=${encodeURIComponent(path)}`;
+      const url = `${cfg.baseUrl.replace(/\/$/, "")}/api/v1/file?path=${encodeSpherePath(path)}`;
       const res = await fetch(url, {
         headers: { "X-Hydro-Token": api.token },
         cache: "no-store",
