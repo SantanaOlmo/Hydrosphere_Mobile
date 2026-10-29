@@ -1,5 +1,5 @@
-/* Hydrosphere Mobile — service worker (cache + avisos de versión) */
-const APP_VERSION = "0.2.1";
+/* Hydrosphere Mobile — service worker (network-first shell + offline fallback) */
+const APP_VERSION = "0.2.2";
 const CACHE = `hydrosphere-mobile-v${APP_VERSION}`;
 const PRECACHE = [
   "./",
@@ -40,6 +40,19 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isShellRequest(url) {
+  const p = url.pathname;
+  return (
+    p.endsWith("/") ||
+    p.endsWith(".html") ||
+    p.endsWith(".js") ||
+    p.endsWith(".css") ||
+    p.endsWith("version.json") ||
+    p.endsWith("manifest.json") ||
+    p.endsWith("sw.js")
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -47,11 +60,27 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // Shell / versión: red primero para que «Actualizar» funcione.
+  if (isShellRequest(url) || req.mode === "navigate") {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
         .then((res) => {
-          if (res && res.ok && url.pathname.indexOf("/api/") === -1) {
+          if (res && res.ok) {
             const copy = res.clone();
             caches.open(CACHE).then((cache) => cache.put(req, copy));
           }

@@ -1,9 +1,9 @@
 {
-  "version": "0.2.1",
-  "build": 3,
+  "version": "0.2.2",
+  "build": 4,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Aviso mixed content: la PWA HTTPS no puede llamar al SoftAP HTTP; usar http://192.168.4.1 en campo.",
+  "notes": "Actualizar instala la PWA en el dispositivo (ya no abre el repo). SW network-first.",
   "downloads": {
     "pwa": "./",
     "android_apk": null,
