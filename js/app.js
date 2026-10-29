@@ -236,7 +236,9 @@
 
     $("#phase-note").textContent = api.demo
       ? "Modo demo: acciones simuladas."
-      : `Capacidades: ${phase}. Acciones según allowed_actions.`;
+      : api.apiFlavor === "legacy" || d._legacy
+        ? "Firmware lab (Dev UI): sin diagnostics HTTP. Archivos/sesión OK; acciones limitadas."
+        : `Capacidades: ${phase}. Acciones según allowed_actions.`;
   }
 
   function appendLog(line) {
@@ -390,7 +392,7 @@
       setChip("offline", "Abriendo sesión…");
       await api.openSession();
 
-      setChip("offline", "Leyendo diagnostics…");
+      setChip("offline", "Leyendo estado…");
       const diag = await api.getDiagnostics();
       let wifi = null;
       try {
@@ -404,8 +406,13 @@
       state.connected = true;
       state.liveOk = true;
       state.pollFails = 0;
-      setChip("online", "Conectado");
-      toast("Sesión abierta con la esfera");
+      if (api.apiFlavor === "legacy" || diag._legacy) {
+        setChip("online", "Lab / legacy");
+        toast("Conectado (Dev UI lab). Sin /diagnostics — modo compatible.");
+      } else {
+        setChip("online", "Conectado");
+        toast("Sesión abierta con la esfera");
+      }
       showView("console");
       renderConsole();
     } catch (err) {
@@ -416,10 +423,18 @@
       showView("gate");
       const msg = err && err.message ? err.message : String(err);
       if (/403|invalid central key|central key/i.test(msg)) {
-        toast("Clave central incorrecta (Más → Ajustes SoftAP).", true);
+        toast(
+          "Clave central incorrecta. Lab: RonaldinhoClub10 · Nuevo FW: HYDRO_CENTRAL_DEV_KEY_CHANGE_ME (Más → Ajustes).",
+          true
+        );
+      } else if (/Nothing matches the given URI/i.test(msg)) {
+        toast(
+          "La esfera respondió 404 (ruta API distinta). Actualiza la app o flashea firmware con /api/v1/diagnostics.",
+          true
+        );
       } else if (/404|Not Found/i.test(msg)) {
         toast(
-          "HTTP OK pero falta diagnostics en el firmware. Flashea feat/sphere-diagnostics-http.",
+          "Ruta HTTP no encontrada en este firmware. Prueba clave lab o flashea feat/sphere-diagnostics-http.",
           true
         );
       } else {

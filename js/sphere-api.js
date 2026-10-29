@@ -6,7 +6,9 @@
 (function (global) {
   const DEFAULTS = {
     baseUrl: "http://192.168.4.1",
-    centralKey: "HYDRO_CENTRAL_DEV_KEY_CHANGE_ME",
+    // Lab actual (Hydrosphere_Project / Dev UI): RonaldinhoClub10
+    // Firmware nuevo (feat/sphere-diagnostics-http): HYDRO_CENTRAL_DEV_KEY_CHANGE_ME
+    centralKey: "RonaldinhoClub10",
     timeoutMs: 8000,
   };
 
@@ -71,6 +73,8 @@
       this.config = loadConfig();
       this.token = sessionStorage.getItem("hs_mobile_token") || null;
       this.demo = false;
+      /** @type {'diagnostics'|'legacy'|null} */
+      this.apiFlavor = null;
       this._demoState = this._freshDemo();
     }
 
@@ -206,6 +210,7 @@
 
     async getDiagnostics() {
       if (this.demo) {
+        this.apiFlavor = "diagnostics";
         const s = this._demoState;
         return {
           api_version: "1",
@@ -232,7 +237,78 @@
         };
       }
       await this.ensureSession();
-      return this._request("GET", "/api/v1/diagnostics");
+      try {
+        const snap = await this._request("GET", "/api/v1/diagnostics");
+        this.apiFlavor = "diagnostics";
+        return snap;
+      } catch (err) {
+        // Firmware lab (Dev UI / Hydrosphere_Project): no hay /diagnostics.
+        if (this._isMissingRoute(err)) {
+          this.apiFlavor = "legacy";
+          return this._legacyDiagnosticsSnapshot();
+        }
+        throw err;
+      }
+    }
+
+    _isMissingRoute(err) {
+      const msg = String((err && err.message) || err || "");
+      const status = err && err.status;
+      return (
+        status === 404 ||
+        /Nothing matches the given URI/i.test(msg) ||
+        /Not Found/i.test(msg)
+      );
+    }
+
+    /**
+     * Snapshot compatible con la Dev UI lab (mission/status + identity).
+     */
+    async _legacyDiagnosticsSnapshot() {
+      let identity = {};
+      let missionWrap = {};
+      try {
+        identity = await this._request("GET", "/api/v1/identity", { auth: false });
+      } catch {
+        /* optional */
+      }
+      try {
+        missionWrap = await this._request("GET", "/api/v1/mission/status");
+      } catch (err) {
+        if (!this._isMissingRoute(err)) throw err;
+      }
+      const miss = (missionWrap && missionWrap.mission) || missionWrap || {};
+      return {
+        api_version: "1",
+        protocol_version: "sphere-legacy-http",
+        sphere_id: identity.sphere_id || missionWrap.sphere_id || "?",
+        boot_id: identity.boot_id || "legacy",
+        capabilities: { phase: "LEGACY", recovery_actions: false, ota: false },
+        operation_mode: miss.state || missionWrap.operation_mode || "UNKNOWN",
+        fsm_state: miss.state || "—",
+        mission_public_state: miss.state || "—",
+        recording: !!miss.recorder_active,
+        file_serving: !!miss.ready_to_download || !!miss.wifi_http_active,
+        armed: !!miss.armed,
+        charging_state: miss.charging_state || "—",
+        session_name: miss.mission_id || null,
+        sd: {
+          mounted: null,
+          health: "UNKNOWN",
+          write_ok: null,
+          status: "LEGACY",
+        },
+        wifi: {
+          started: true,
+          http_active: miss.wifi_http_active !== false,
+          sta_count: null,
+        },
+        ping: { state: "IDLE", periodic_active: false, sequence: 0 },
+        reset: { reason: "—", reason_code: 0 },
+        imu_ready: null,
+        allowed_actions: ["PING_ONCE"],
+        _legacy: true,
+      };
     }
 
     async getWifi() {
@@ -259,7 +335,34 @@
         };
       }
       await this.ensureSession();
-      return this._request("GET", "/api/v1/diagnostics/wifi");
+      if (this.apiFlavor === "legacy") {
+        return {
+          api_version: "1",
+          protocol_version: "sphere-legacy-http",
+          status: "UP",
+          mode: "AP",
+          ip: "192.168.4.1",
+          gateway: "192.168.4.1",
+          netif_up: true,
+          initialized: true,
+          _legacy: true,
+        };
+      }
+      try {
+        return await this._request("GET", "/api/v1/diagnostics/wifi");
+      } catch (err) {
+        if (this._isMissingRoute(err)) {
+          this.apiFlavor = "legacy";
+          return {
+            api_version: "1",
+            status: "UP",
+            mode: "AP",
+            ip: "192.168.4.1",
+            _legacy: true,
+          };
+        }
+        throw err;
+      }
     }
 
     async getPing() {
@@ -299,12 +402,25 @@
       }
 
       await this.ensureSession();
+
+      // Lab legacy: ping 1x en ruta distinta
+      if (this.apiFlavor === "legacy" && action === "PING_ONCE") {
+        try {
+          return await this._request("POST", "/api/v1/diag/acoustic_ping_once", { body: {} });
+        } catch (err) {
+          if (this._isMissingRoute(err)) {
+            throw new Error("Ping diag no disponible en este firmware.");
+          }
+          throw err;
+        }
+      }
+
       try {
         return await this._request(spec.method, spec.path, { body: {} });
       } catch (err) {
-        if (/404|405|Method Not Allowed|Not Found/i.test(String(err.message))) {
+        if (this._isMissingRoute(err) || /405|Method Not Allowed/i.test(String(err.message))) {
           const err2 = new Error(
-            `${action}: el firmware aún no expone esta acción HTTP (Fase 2). Disponible por UART hoy.`
+            `${action}: ruta no disponible en este firmware (¿falta flashear diagnostics HTTP?).`
           );
           err2.code = "PHASE2_PENDING";
           throw err2;
