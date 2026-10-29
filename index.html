@@ -62,8 +62,8 @@
           </div>
           <ol class="steps">
             <li>Ajustes Wi‑Fi → unirse a <code>ESP32_C6</code> (comprueba el nombre).</li>
-            <li><strong>Apaga los datos móviles</strong> (o modo avión + solo Wi‑Fi). Si no, Android no usa el SoftAP.</li>
-            <li>Vuelve aquí y pulsa «Comprobar conexión».</li>
+            <li><strong>Apaga los datos móviles</strong> (o modo avión + solo Wi‑Fi SoftAP). Con datos ON Android ignora el SoftAP sin internet.</li>
+            <li>Espera a que el chip diga «Esfera al alcance» (o pulsa comprobar). El botón muestra el loader mientras prueba.</li>
           </ol>
           <div class="cta-row">
             <button type="button" class="btn btn-primary" id="btn-retry-wifi">
@@ -205,6 +205,7 @@
 
     <div id="toast" class="toast" role="status"></div>
 
+    <script src="js/ui-busy.js"></script>
     <script src="js/sphere-api.js"></script>
     <script src="js/version-check.js"></script>
     <script src="js/app.js"></script>

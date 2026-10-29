@@ -1,12 +1,13 @@
 /**
- * Cliente HTTP SoftAP SPHERE (diagnostics + session + acciones Fase 2 previstas).
- * Base: http://192.168.4.1 — requiere estar en el SoftAP de la esfera.
+ * Cliente HTTP SoftAP SPHERE (diagnostics + session + acciones).
+ * Base: http://192.168.4.1 — requiere STA en SoftAP; en Android preferir datos móviles OFF.
+ * En Capacitor usa CapacitorHttp (nativo) para todo el tráfico SoftAP.
  */
 (function (global) {
   const DEFAULTS = {
     baseUrl: "http://192.168.4.1",
     centralKey: "HYDRO_CENTRAL_DEV_KEY_CHANGE_ME",
-    timeoutMs: 4500,
+    timeoutMs: 8000,
   };
 
   function loadConfig() {
@@ -22,6 +23,47 @@
     const next = { ...loadConfig(), ...partial };
     localStorage.setItem("hs_mobile_config", JSON.stringify(next));
     return next;
+  }
+
+  function isNative() {
+    try {
+      return !!(
+        global.Capacitor &&
+        typeof global.Capacitor.isNativePlatform === "function" &&
+        global.Capacitor.isNativePlatform()
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function nativeHttp() {
+    try {
+      return (global.Capacitor && (global.Capacitor.Plugins || {}).CapacitorHttp) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function parseBody(data) {
+    if (data == null || data === "") return null;
+    if (typeof data === "object") return data;
+    try {
+      return JSON.parse(String(data));
+    } catch {
+      return { raw: String(data) };
+    }
+  }
+
+  /** Respuesta real de SoftAP SPHERE en /api/v1/status */
+  function looksLikeSphereStatus(data) {
+    if (!data || typeof data !== "object") return false;
+    return (
+      Object.prototype.hasOwnProperty.call(data, "active") ||
+      Object.prototype.hasOwnProperty.call(data, "download_api") ||
+      data.api_prefix === "/api/v1" ||
+      typeof data.state === "string"
+    );
   }
 
   class SphereApi {
@@ -84,55 +126,36 @@
     async probe() {
       if (this.demo) return { ok: true, demo: true };
       const url = `${this.config.baseUrl.replace(/\/$/, "")}/api/v1/status`;
-
-      // APK: HTTP nativo (no depende de CORS del WebView)
       try {
-        const native =
-          window.Capacitor &&
-          typeof window.Capacitor.isNativePlatform === "function" &&
-          window.Capacitor.isNativePlatform();
-        const Http = window.Capacitor && (window.Capacitor.Plugins || {}).CapacitorHttp;
-        if (native && Http && typeof Http.request === "function") {
-          const res = await Http.request({
-            url,
-            method: "GET",
-            connectTimeout: this.config.timeoutMs,
-            readTimeout: this.config.timeoutMs,
-            headers: { Accept: "application/json" },
-          });
-          const status = res.status || 0;
-          return {
-            ok: status > 0 && status < 500,
-            status,
-            native: true,
-          };
-        }
-      } catch (err) {
-        return { ok: false, error: String(err && err.message ? err.message : err), native: true };
-      }
-
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), this.config.timeoutMs);
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          signal: ctrl.signal,
-          cache: "no-store",
-          mode: "cors",
+        const { status, data } = await this._http("GET", url, {
+          headers: { Accept: "application/json" },
+          auth: false,
+          expectJson: true,
         });
-        clearTimeout(t);
-        return { ok: res.ok || res.status === 401 || res.status === 403, status: res.status };
+        const body = parseBody(data);
+        const sphere = looksLikeSphereStatus(body);
+        const ok = status === 200 && sphere;
+        return {
+          ok,
+          status,
+          sphere,
+          native: isNative(),
+          body,
+          hint: !ok
+            ? status === 0 || !status
+              ? "unreachable"
+              : sphere
+                ? "bad_status"
+                : "not_sphere"
+            : null,
+        };
       } catch (err) {
-        clearTimeout(t);
-        try {
-          const ctrl2 = new AbortController();
-          const t2 = setTimeout(() => ctrl2.abort(), 2500);
-          await fetch(url, { method: "GET", mode: "no-cors", signal: ctrl2.signal, cache: "no-store" });
-          clearTimeout(t2);
-          return { ok: true, opaque: true };
-        } catch {
-          return { ok: false, error: String(err && err.message ? err.message : err) };
-        }
+        return {
+          ok: false,
+          error: String(err && err.message ? err.message : err),
+          native: isNative(),
+          hint: "unreachable",
+        };
       }
     }
 
@@ -157,6 +180,11 @@
       if (this.token) return this.token;
       await this.openSession();
       return this.token;
+    }
+
+    clearSession() {
+      this.token = null;
+      sessionStorage.removeItem("hs_mobile_token");
     }
 
     async getDiagnostics() {
@@ -236,10 +264,6 @@
       return this._request("GET", "/api/v1/files");
     }
 
-    /**
-     * Acciones Fase 2 (previstas). Si el firmware aún responde 404/405,
-     * se reporta claramente. En demo se simulan.
-     */
     async runAction(action) {
       const map = {
         PING_ONCE: { method: "POST", path: "/api/v1/diagnostics/ping/once" },
@@ -261,7 +285,6 @@
       try {
         return await this._request(spec.method, spec.path, { body: {} });
       } catch (err) {
-        // Compat: algunos stacks pueden usar rutas distintas
         if (/404|405|Method Not Allowed|Not Found/i.test(String(err.message))) {
           const err2 = new Error(
             `${action}: el firmware aún no expone esta acción HTTP (Fase 2). Disponible por UART hoy.`
@@ -312,9 +335,8 @@
       return { ok: true, action, demo: true };
     }
 
-    async _request(method, path, opts = {}) {
+    async _http(method, url, opts = {}) {
       const { headers = {}, body, auth = true } = opts;
-      const url = `${this.config.baseUrl.replace(/\/$/, "")}${path}`;
       const h = {
         Accept: "application/json",
         ...headers,
@@ -322,11 +344,23 @@
       if (body !== undefined) h["Content-Type"] = "application/json";
       if (auth && this.token) h["X-Hydro-Token"] = this.token;
 
+      const Http = nativeHttp();
+      if (isNative() && Http && typeof Http.request === "function") {
+        const res = await Http.request({
+          url,
+          method,
+          headers: h,
+          data: body !== undefined ? body : undefined,
+          connectTimeout: this.config.timeoutMs,
+          readTimeout: this.config.timeoutMs,
+        });
+        return { status: res.status || 0, data: res.data };
+      }
+
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), this.config.timeoutMs);
-      let res;
       try {
-        res = await fetch(url, {
+        const res = await fetch(url, {
           method,
           headers: h,
           body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -334,33 +368,40 @@
           cache: "no-store",
           mode: "cors",
         });
+        clearTimeout(t);
+        const text = await res.text();
+        return { status: res.status, data: text ? parseBody(text) : null };
       } catch (err) {
         clearTimeout(t);
+        throw err;
+      }
+    }
+
+    async _request(method, path, opts = {}) {
+      const url = `${this.config.baseUrl.replace(/\/$/, "")}${path}`;
+      let status;
+      let data;
+      try {
+        const res = await this._http(method, url, opts);
+        status = res.status;
+        data = parseBody(res.data);
+      } catch (err) {
         throw new Error(`Sin respuesta de la esfera (${err.message || "red"})`);
       }
-      clearTimeout(t);
 
-      const text = await res.text();
-      let data = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = { raw: text };
-      }
-
-      if (!res.ok) {
+      if (!status || status < 200 || status >= 300) {
         const code = data && data.error && data.error.code;
         const msg =
           (data && data.error && data.error.message) ||
           data?.message ||
-          `${res.status} ${res.statusText}`;
+          (typeof data?.raw === "string" ? data.raw.slice(0, 120) : null) ||
+          `${status || 0} error`;
         const e = new Error(msg);
-        e.status = res.status;
+        e.status = status;
         e.code = code;
         e.payload = data;
-        if (res.status === 401 || res.status === 403) {
-          this.token = null;
-          sessionStorage.removeItem("hs_mobile_token");
+        if (status === 401 || status === 403) {
+          this.clearSession();
         }
         throw e;
       }

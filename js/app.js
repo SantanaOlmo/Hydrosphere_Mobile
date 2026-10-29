@@ -2,9 +2,13 @@
   const api = new HydrosphereSphereApi();
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const Busy = () => window.HydrosphereBusy;
 
   const state = {
     connected: false,
+    liveOk: false,
+    connecting: false,
+    pollFails: 0,
     view: "gate",
     diag: null,
     wifi: null,
@@ -78,10 +82,6 @@
     return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
   }
 
-  /**
-   * Solo bloquea GitHub Pages / PWA HTTPS en navegador.
-   * En Capacitor (APK) CapacitorHttp + cleartext permiten SoftAP HTTP.
-   */
   function isHttpsToHttpBlocked() {
     if (isNativeApp()) return false;
     const cfg = HydrosphereSphereConfig.loadConfig();
@@ -104,7 +104,6 @@
   function updateInstallFab() {
     const fab = $("#fab-install");
     if (!fab) return;
-    // En APK nativo no tiene sentido instalar PWA.
     const show = !isNativeApp() && !isStandalone() && isMobileViewport();
     fab.classList.toggle("hidden", !show);
   }
@@ -115,7 +114,7 @@
     el.classList.toggle("err", !!isErr);
     el.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove("show"), 3200);
+    toast._t = setTimeout(() => el.classList.remove("show"), 4200);
   }
 
   function setChip(mode, label) {
@@ -163,19 +162,41 @@
     return `<div class="metric ${toneClass(status)}"><span class="label">${label}</span><span class="value">${value ?? "—"}</span></div>`;
   }
 
+  function dropToGate(message, isErr) {
+    state.connected = false;
+    state.liveOk = false;
+    state.pollFails = 0;
+    stopPoll();
+    setChip("offline", "Desconectado");
+    showView("gate");
+    if (message) toast(message, isErr);
+  }
+
   async function refreshConsole() {
+    if (!state.connected || state.connecting) return;
     try {
       const [diag, wifi] = await Promise.all([api.getDiagnostics(), api.getWifi()]);
       state.diag = diag;
       state.wifi = wifi;
+      state.liveOk = true;
+      state.pollFails = 0;
       renderConsole();
     } catch (err) {
       appendLog(`Error diagnóstico: ${err.message}`);
-      if (!api.demo) {
-        state.connected = false;
-        setChip("offline", "Desconectado");
-        showView("gate");
-        toast("Se perdió la conexión con la esfera", true);
+      if (api.demo) return;
+      state.pollFails += 1;
+      // No gritar "se perdió" si nunca hubo un poll OK, ni al primer fallo de red.
+      if (!state.liveOk) {
+        dropToGate(
+          `No se pudo leer diagnostics: ${err.message}. ¿Firmware con sphere-diagnostics-http?`,
+          true
+        );
+        return;
+      }
+      if (state.pollFails >= 2) {
+        dropToGate("Se perdió la conexión con la esfera", true);
+      } else {
+        setChip("offline", "Reintentando…");
       }
     }
   }
@@ -294,10 +315,23 @@
     $("#panel-lab-demo").hidden = isStandalone();
   }
 
+  function probeFailMessage(probe) {
+    if (probe.hint === "not_sphere") {
+      return "Hay respuesta en 192.168.4.1 pero no es la esfera. ¿Wi‑Fi correcto (ESP32_C6)?";
+    }
+    if (isNativeApp()) {
+      return "No se alcanza la esfera en 192.168.4.1. Wi‑Fi ESP32_C6 + datos móviles OFF (o avión + solo Wi‑Fi SoftAP).";
+    }
+    return "No se alcanza http://192.168.4.1 — conéctate al SoftAP ESP32_C6 y apaga datos móviles.";
+  }
+
   async function tryConnect({ demo = false } = {}) {
+    if (state.connecting) return;
+    const btn = $("#btn-retry-wifi");
     api.setDemo(demo);
     if (demo) {
       state.connected = true;
+      state.liveOk = true;
       setChip("demo", "Demo");
       toast("Modo demo activo");
       showView("console");
@@ -308,28 +342,66 @@
       toast("Abre http://192.168.4.1 — esta web HTTPS no puede llamar al SoftAP HTTP", true);
       return;
     }
+
+    state.connecting = true;
+    state.connected = false;
+    state.liveOk = false;
+    state.pollFails = 0;
+    stopPoll();
+    Busy().set(btn, true, { busyLabel: "Comprobando conexión" });
     setChip("offline", "Comprobando…");
-    const probe = await api.probe();
-    if (!probe.ok) {
-      setChip("offline", "Sin esfera");
-      showView("gate");
-      toast(
-        "No se alcanza 192.168.4.1. Comprueba Wi‑Fi ESP32_C6 y apaga los datos móviles.",
-        true
-      );
-      return;
-    }
+
     try {
+      const probe = await api.probe();
+      if (!probe.ok) {
+        setChip("offline", "Sin esfera");
+        showView("gate");
+        toast(probeFailMessage(probe), true);
+        return;
+      }
+
+      setChip("offline", "Abriendo sesión…");
       await api.openSession();
+
+      setChip("offline", "Leyendo diagnostics…");
+      const diag = await api.getDiagnostics();
+      let wifi = null;
+      try {
+        wifi = await api.getWifi();
+      } catch {
+        wifi = null;
+      }
+
+      state.diag = diag;
+      state.wifi = wifi;
       state.connected = true;
+      state.liveOk = true;
+      state.pollFails = 0;
       setChip("online", "Conectado");
       toast("Sesión abierta con la esfera");
       showView("console");
+      renderConsole();
     } catch (err) {
-      setChip("offline", "Sesión");
-      toast(err.message || "No se pudo abrir sesión", true);
+      api.clearSession();
+      state.connected = false;
+      state.liveOk = false;
+      setChip("offline", "Error");
       showView("gate");
-      appendLog(`Sesión: ${err.message}`);
+      const msg = err && err.message ? err.message : String(err);
+      if (/403|invalid central key|central key/i.test(msg)) {
+        toast("Clave central incorrecta (Más → Ajustes SoftAP).", true);
+      } else if (/404|Not Found/i.test(msg)) {
+        toast(
+          "HTTP OK pero falta diagnostics en el firmware. Flashea feat/sphere-diagnostics-http.",
+          true
+        );
+      } else {
+        toast(msg || "No se pudo conectar con la esfera", true);
+      }
+      appendLog(`Conexión: ${msg}`);
+    } finally {
+      state.connecting = false;
+      Busy().set(btn, false);
     }
   }
 
@@ -339,18 +411,15 @@
     $("#update-text").textContent = remote
       ? `Nueva versión ${remote}`
       : "Nueva versión disponible";
-    btn.textContent = "Actualizar";
-    btn.disabled = false;
+    Busy().set(btn, false, { idleHtml: "Actualizar" });
     btn.onclick = async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      btn.disabled = true;
-      btn.textContent = "Actualizando…";
+      Busy().set(btn, true, { busyLabel: "Actualizando" });
       try {
         await HydrosphereVersion.applyUpdate();
       } catch (err) {
-        btn.disabled = false;
-        btn.textContent = "Actualizar";
+        Busy().set(btn, false, { idleHtml: "Actualizar" });
         toast("No se pudo actualizar", true);
       }
     };
@@ -359,7 +428,9 @@
 
   async function checkUpdatesManual() {
     const status = $("#update-status");
+    const btn = $("#btn-check-updates");
     status.textContent = "Comprobando…";
+    Busy().set(btn, true, { busyLabel: "Buscando actualización" });
     try {
       const info = await HydrosphereVersion.checkForUpdates();
       if (info.newer) {
@@ -370,6 +441,8 @@
       }
     } catch (err) {
       status.textContent = "No se pudo comprobar";
+    } finally {
+      Busy().set(btn, false);
     }
   }
 
@@ -446,14 +519,9 @@
     });
 
     $("#btn-disconnect").addEventListener("click", () => {
-      state.connected = false;
-      api.token = null;
-      sessionStorage.removeItem("hs_mobile_token");
+      api.clearSession();
       api.setDemo(false);
-      stopPoll();
-      setChip("offline", "Desconectado");
-      showView("gate");
-      toast("Sesión cerrada");
+      dropToGate("Sesión cerrada", false);
     });
 
     window.addEventListener("beforeinstallprompt", (e) => {
@@ -510,10 +578,10 @@
       return;
     }
 
+    // Solo anuncia alcance; la sesión la abre el usuario (evita falsos «se perdió»).
     api.probe().then((p) => {
-      if (p.ok && !api.demo) {
+      if (p.ok && !api.demo && !state.connected && !state.connecting) {
         setChip("online", "Esfera al alcance");
-        tryConnect({ demo: false });
       }
     });
   });

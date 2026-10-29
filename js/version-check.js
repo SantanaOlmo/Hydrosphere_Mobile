@@ -2,7 +2,7 @@
  * Comprueba version.json / Releases. Actualiza la PWA en el dispositivo.
  */
 (function (global) {
-  const LOCAL_VERSION = "0.3.2";
+  const LOCAL_VERSION = "0.3.3";
   const GH_RELEASES =
     "https://api.github.com/repos/SantanaOlmo/Hydrosphere_Mobile/releases/latest";
 
