@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "build": 1,
+  "released_at": "2026-10-29",
+  "channel": "public",
+  "notes": "Primera consola móvil de mantenimiento Hydrosphere: puerta Wi‑Fi, diagnóstico y acciones seguras.",
+  "downloads": {
+    "pwa": "./",
+    "android_apk": null,
+    "ios": null
+  },
+  "sphere_base_url": "http://192.168.4.1",
+  "softap_ssid": "ESP32_C6",
+  "min_protocol": "sphere-diagnostics-http/1"
+}
