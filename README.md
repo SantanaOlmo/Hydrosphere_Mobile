@@ -11,12 +11,22 @@ La app de escritorio privada sigue en [`Hydrosphere`](https://github.com/ennde3d
 
 ## Flujo en campo
 
-1. Con internet: abre la GitHub Page e **instala la PWA** (o descarga el APK cuando exista en `releases/`).
+1. Con internet: abre la GitHub Page e **instala la PWA** (caché / actualizaciones).
 2. En campo: conecta el móvil al SoftAP `ESP32_C6` (pass de lab `12345678`).
-3. Abre Hydrosphere Mobile (ya en caché) → **Comprobar conexión** → consola.
+3. **Abre la consola en la esfera:** `http://192.168.4.1/` (navegador o enlace desde la PWA).
 4. Pulsa acciones (p. ej. **Ping start**) para que la esfera emita el tono acústico.
 
-> SoftAP no da internet. Por eso la PWA debe instalarse *antes* o servirse en caché offline.
+### Limitación importante (mixed content)
+
+La web en `https://santanaolmo.github.io/...` **no puede** hacer `fetch` a `http://192.168.4.1` aunque el Wi‑Fi SoftAP esté conectado. El navegador bloquea HTTPS→HTTP. CORS en firmware **no** lo soluciona.
+
+| Origen | ¿Habla con SoftAP? |
+|--------|--------------------|
+| `http://192.168.4.1/` (UI embebida) | Sí (same-origin) |
+| GitHub Pages / PWA instalada desde Pages | No (mixed content) |
+| Demo local `http://localhost` | Sí a SoftAP HTTP (si hay CORS o same machine quirks) |
+
+La PWA de distribución sirve para **instalar/actualizar**; la operación SoftAP es en la UI HTTP de la esfera.
 
 ## Desarrollo local
 

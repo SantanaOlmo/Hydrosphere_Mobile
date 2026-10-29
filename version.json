@@ -1,9 +1,9 @@
 {
-  "version": "0.2.0",
-  "build": 2,
+  "version": "0.2.1",
+  "build": 3,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "UI alineada a Hydrosphere: fondo plano, iconos de producto, nav definitiva, FAB instalar solo en web móvil, sin landing demo obligatoria.",
+  "notes": "Aviso mixed content: la PWA HTTPS no puede llamar al SoftAP HTTP; usar http://192.168.4.1 en campo.",
   "downloads": {
     "pwa": "./",
     "android_apk": null,

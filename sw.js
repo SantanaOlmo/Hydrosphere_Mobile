@@ -1,5 +1,5 @@
 /* Hydrosphere Mobile — service worker (cache + avisos de versión) */
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.2.1";
 const CACHE = `hydrosphere-mobile-v${APP_VERSION}`;
 const PRECACHE = [
   "./",

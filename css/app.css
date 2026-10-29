@@ -188,6 +188,15 @@ a {
   color: var(--text-strong);
 }
 
+.panel.warn-panel {
+  border-color: rgba(255, 170, 0, 0.45);
+  background: #1a1710;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
 .muted {
   color: var(--text-muted);
   font-size: 0.88rem;

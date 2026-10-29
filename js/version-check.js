@@ -2,7 +2,7 @@
  * Comprueba version.json del propio repo / GitHub Releases y notifica actualizaciones.
  */
 (function (global) {
-  const LOCAL_VERSION = "0.2.0";
+  const LOCAL_VERSION = "0.2.1";
   const GH_RELEASES =
     "https://api.github.com/repos/SantanaOlmo/Hydrosphere_Mobile/releases/latest";
 

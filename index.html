@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0d0f12" />
     <meta name="description" content="Hydrosphere — mantenimiento de la esfera por Wi‑Fi SoftAP" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Hydrosphere</title>
@@ -29,7 +30,26 @@
           <h1>Conexión</h1>
           <span class="status-chip offline" data-conn-chip><span class="dot"></span><span class="label">Sin conexión</span></span>
         </div>
-        <div class="panel">
+        <div class="panel warn-panel hidden" id="panel-mixed-content">
+          <h2>Esta página no puede hablar con la esfera</h2>
+          <p class="muted">
+            Estás en <strong>HTTPS</strong> (GitHub Pages / PWA). El SoftAP solo sirve
+            <strong>HTTP</strong> (<code>http://192.168.4.1</code>). El navegador bloquea
+            esa mezcla (mixed content), aunque el Wi‑Fi <code>ESP32_C6</code> esté conectado.
+            CORS en firmware <em>no</em> lo arregla.
+          </p>
+          <ol class="steps">
+            <li>Mantén el Wi‑Fi en <code>ESP32_C6</code>.</li>
+            <li>Abre la consola <strong>en la propia esfera</strong> (mismo origen HTTP).</li>
+          </ol>
+          <div class="cta-row">
+            <a class="btn btn-primary" id="btn-open-sphere" href="http://192.168.4.1/" rel="noopener">
+              Abrir http://192.168.4.1
+            </a>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-softap-gate">
           <h2>SoftAP de la esfera</h2>
           <p class="muted">
             Conéctate a la Wi‑Fi de la esfera y abre sesión. Base:

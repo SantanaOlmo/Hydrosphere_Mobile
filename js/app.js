@@ -65,6 +65,25 @@
     return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
   }
 
+  /** HTTPS (Pages/PWA) → HTTP SoftAP: el navegador bloquea fetch (mixed content). */
+  function isHttpsToHttpBlocked() {
+    const cfg = HydrosphereSphereConfig.loadConfig();
+    const base = (cfg.baseUrl || "").trim().toLowerCase();
+    return location.protocol === "https:" && base.startsWith("http:");
+  }
+
+  function applyMixedContentGate() {
+    const blocked = isHttpsToHttpBlocked();
+    const warn = $("#panel-mixed-content");
+    const soft = $("#panel-softap-gate");
+    if (warn) warn.classList.toggle("hidden", !blocked);
+    if (soft) soft.classList.toggle("hidden", blocked);
+    if (blocked) {
+      setChip("offline", "HTTPS→HTTP");
+    }
+    return blocked;
+  }
+
   function updateInstallFab() {
     const fab = $("#fab-install");
     if (!fab) return;
@@ -266,6 +285,11 @@
       showView("console");
       return;
     }
+    if (applyMixedContentGate()) {
+      showView("gate");
+      toast("Abre http://192.168.4.1 — esta web HTTPS no puede llamar al SoftAP HTTP", true);
+      return;
+    }
     setChip("offline", "Comprobando…");
     const probe = await api.probe();
     if (!probe.ok) {
@@ -281,7 +305,7 @@
       toast("Sesión abierta con la esfera");
       showView("console");
     } catch (err) {
-      setChip("offline", "Auth / CORS");
+      setChip("offline", "Sesión");
       toast(err.message || "No se pudo abrir sesión", true);
       showView("gate");
       appendLog(`Sesión: ${err.message}`);
@@ -446,7 +470,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    // loop.svg may be missing — copy fallback for IMU
     ACTIONS.forEach((a) => {
       if (a.id === "IMU_RETRY") a.icon = "assets/icons/actions/refresh.svg";
     });
@@ -457,6 +480,10 @@
     updateInstallFab();
     registerSW();
     initVersionBanner();
+
+    if (applyMixedContentGate()) {
+      return;
+    }
 
     api.probe().then((p) => {
       if (p.ok && !api.demo) {
