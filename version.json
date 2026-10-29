@@ -1,12 +1,12 @@
 {
-  "version": "0.3.6",
-  "build": 12,
+  "version": "0.3.7",
+  "build": 13,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Scroll consola + descarga path sin %2F. Navbar sin fondo/borde y botones centrados en altura.",
+  "notes": "Fix banner falso (LOCAL_VERSION). Actualizar en APK abre descarga. Navbar con degradado bg→transparente.",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.6/hydrosphere-mobile-0.3.6-debug.apk",
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.7/hydrosphere-mobile-0.3.7-debug.apk",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

@@ -450,19 +450,26 @@
   function showUpdateBanner(remote) {
     const banner = $("#update-banner");
     const btn = $("#update-download");
+    const native = isNativeApp();
     $("#update-text").textContent = remote
-      ? `Nueva versión ${remote}`
+      ? native
+        ? `Nueva versión ${remote} (descarga e instala el APK)`
+        : `Nueva versión ${remote}`
       : "Nueva versión disponible";
-    Busy().set(btn, false, { idleHtml: "Actualizar" });
+    Busy().set(btn, false, { idleHtml: native ? "Descargar APK" : "Actualizar" });
     btn.onclick = async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      Busy().set(btn, true, { busyLabel: "Actualizando" });
+      Busy().set(btn, true, { busyLabel: native ? "Abriendo…" : "Actualizando" });
       try {
-        await HydrosphereVersion.applyUpdate();
+        const res = await HydrosphereVersion.applyUpdate();
+        if (res && res.mode === "native-apk") {
+          Busy().set(btn, false, { idleHtml: "Descargar APK" });
+          toast("Se abre la descarga del APK. Instálalo encima (o desinstala antes).");
+        }
       } catch (err) {
-        Busy().set(btn, false, { idleHtml: "Actualizar" });
-        toast("No se pudo actualizar", true);
+        Busy().set(btn, false, { idleHtml: native ? "Descargar APK" : "Actualizar" });
+        toast((err && err.message) || "No se pudo actualizar", true);
       }
     };
     banner.classList.add("show");

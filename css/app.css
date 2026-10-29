@@ -530,7 +530,12 @@ a.btn {
   grid-template-columns: repeat(4, 1fr);
   align-items: center;
   gap: 4px;
-  background: transparent;
+  background: linear-gradient(
+    to top,
+    var(--bg-main) 0%,
+    var(--bg-main) 35%,
+    rgba(13, 15, 18, 0) 100%
+  );
   border-top: none;
   z-index: 20;
 }
