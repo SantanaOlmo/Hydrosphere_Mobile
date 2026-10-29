@@ -31,21 +31,22 @@
           <span class="status-chip offline" data-conn-chip><span class="dot"></span><span class="label">Sin conexión</span></span>
         </div>
         <div class="panel warn-panel hidden" id="panel-mixed-content">
-          <h2>Esta página no puede hablar con la esfera</h2>
+          <h2>Usa la app Android o la consola de la esfera</h2>
           <p class="muted">
-            Estás en <strong>HTTPS</strong> (GitHub Pages / PWA). El SoftAP solo sirve
-            <strong>HTTP</strong> (<code>http://192.168.4.1</code>). El navegador bloquea
-            esa mezcla (mixed content), aunque el Wi‑Fi <code>ESP32_C6</code> esté conectado.
-            CORS en firmware <em>no</em> lo arregla.
+            Esta web HTTPS no puede hablar con SoftAP HTTP. Instala el APK Hydrosphere
+            o abre <code>http://192.168.4.1</code> con el Wi‑Fi <code>ESP32_C6</code>.
           </p>
-          <ol class="steps">
-            <li>Mantén el Wi‑Fi en <code>ESP32_C6</code>.</li>
-            <li>Abre la consola <strong>en la propia esfera</strong> (mismo origen HTTP).</li>
-          </ol>
           <div class="cta-row">
             <a class="btn btn-primary" id="btn-open-sphere" href="http://192.168.4.1/" rel="noopener">
               Abrir http://192.168.4.1
             </a>
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/latest"
+              target="_blank"
+              rel="noopener"
+              >Descargar APK</a
+            >
           </div>
         </div>
 

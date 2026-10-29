@@ -1,0 +1,17 @@
+{
+  "appId": "com.hydrosphere.mobile",
+  "appName": "Hydrosphere",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

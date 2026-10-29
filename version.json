@@ -1,12 +1,12 @@
 {
-  "version": "0.2.3",
-  "build": 5,
+  "version": "0.3.0",
+  "build": 6,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Banner corto y Actualizar en el dispositivo.",
+  "notes": "App Android (Capacitor) con SoftAP HTTP. La web Pages sigue siendo solo distribución.",
   "downloads": {
     "pwa": "./",
-    "android_apk": null,
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/latest",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

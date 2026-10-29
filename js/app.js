@@ -53,8 +53,21 @@
     },
   ];
 
+  function isNativeApp() {
+    try {
+      return !!(
+        window.Capacitor &&
+        typeof window.Capacitor.isNativePlatform === "function" &&
+        window.Capacitor.isNativePlatform()
+      );
+    } catch {
+      return false;
+    }
+  }
+
   function isStandalone() {
     return (
+      isNativeApp() ||
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone === true ||
       document.referrer.includes("android-app://")
@@ -65,8 +78,12 @@
     return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
   }
 
-  /** HTTPS (Pages/PWA) → HTTP SoftAP: el navegador bloquea fetch (mixed content). */
+  /**
+   * Solo bloquea GitHub Pages / PWA HTTPS en navegador.
+   * En Capacitor (APK) CapacitorHttp + cleartext permiten SoftAP HTTP.
+   */
   function isHttpsToHttpBlocked() {
+    if (isNativeApp()) return false;
     const cfg = HydrosphereSphereConfig.loadConfig();
     const base = (cfg.baseUrl || "").trim().toLowerCase();
     return location.protocol === "https:" && base.startsWith("http:");
@@ -87,7 +104,8 @@
   function updateInstallFab() {
     const fab = $("#fab-install");
     if (!fab) return;
-    const show = !isStandalone() && isMobileViewport();
+    // En APK nativo no tiene sentido instalar PWA.
+    const show = !isNativeApp() && !isStandalone() && isMobileViewport();
     fab.classList.toggle("hidden", !show);
   }
 
