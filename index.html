@@ -3,74 +3,52 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0A3D4A" />
-    <meta name="description" content="Hydrosphere Mobile — mantenimiento de la esfera por Wi‑Fi SoftAP" />
+    <meta name="theme-color" content="#0d0f12" />
+    <meta name="description" content="Hydrosphere — mantenimiento de la esfera por Wi‑Fi SoftAP" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Hydrosphere Mobile</title>
+    <title>Hydrosphere</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="assets/icons/app-icon-192.png" />
     <link rel="apple-touch-icon" href="assets/icons/app-icon-192.png" />
     <link rel="stylesheet" href="css/app.css" />
   </head>
   <body>
-    <div class="app-shell landing-mode">
+    <div class="app-shell">
       <div id="update-banner" class="update-banner" role="status">
         <p id="update-text">Hay una nueva versión disponible.</p>
         <button type="button" class="btn btn-sm btn-primary" id="update-download">Descargar</button>
       </div>
 
-      <!-- LANDING -->
-      <section class="view active hero" data-view="landing" aria-label="Inicio">
-        <div class="hero-orb" aria-hidden="true"></div>
-        <div class="hero-copy">
-          <h1 class="brand"><span>Hydrosphere</span>Mobile</h1>
-          <p class="lede">
-            Consola de mantenimiento de la esfera por Wi‑Fi. Conéctate al SoftAP y opera ping, SD y diagnóstico sin abrir la carcasa.
-          </p>
-          <div class="cta-row">
-            <button type="button" class="btn btn-primary" id="btn-enter">
-              <img class="icon" src="assets/icons/FePlay.svg" alt="" />
-              Entrar a la consola
-            </button>
-            <button type="button" class="btn btn-ghost" id="btn-install">
-              <img class="icon" src="assets/icons/MaterialSymbolsDownload.svg" alt="" />
-              Descargar / instalar app
-            </button>
-            <button type="button" class="btn btn-ghost" id="btn-demo">Probar en demo</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- WIFI GATE -->
-      <section class="view gate" data-view="gate">
+      <!-- GATE / conexión -->
+      <section class="view active" data-view="gate" aria-label="Conexión">
         <div class="topbar">
-          <button type="button" class="icon-btn" id="btn-back-landing" aria-label="Volver">
-            <img class="icon" src="assets/icons/MaterialSymbolsArrowBackIosNewRounded.svg" alt="" />
-          </button>
-          <h1>Conexión SoftAP</h1>
+          <div class="brand-mark" aria-hidden="true">
+            <img src="assets/icons/app/sphere_mark.svg" alt="" />
+          </div>
+          <h1>Conexión</h1>
           <span class="status-chip offline" data-conn-chip><span class="dot"></span><span class="label">Sin conexión</span></span>
         </div>
-        <div class="gate-card">
-          <h2>Conéctate a la Wi‑Fi de la esfera</h2>
-          <p>
-            La consola habla con <strong>http://192.168.4.1</strong>. En campo el SoftAP no da internet: instala la PWA antes o usa esta página en caché.
+        <div class="panel">
+          <h2>SoftAP de la esfera</h2>
+          <p class="muted">
+            Conéctate a la Wi‑Fi de la esfera y abre sesión. Base:
+            <strong>http://192.168.4.1</strong>
           </p>
           <div class="ssid-box">
             <span>SSID · <strong>ESP32_C6</strong></span>
             <span>pass · 12345678</span>
           </div>
           <ol class="steps">
-            <li>Ajustes Wi‑Fi del móvil → unirse a <code>ESP32_C6</code>.</li>
+            <li>Ajustes Wi‑Fi → unirse a <code>ESP32_C6</code>.</li>
             <li>Vuelve aquí y pulsa «Comprobar conexión».</li>
-            <li>Si la esfera responde, se abre sesión y entra la consola.</li>
+            <li>Si responde, se abre sesión y entra la consola.</li>
           </ol>
           <div class="cta-row">
             <button type="button" class="btn btn-primary" id="btn-retry-wifi">
-              <img class="icon" src="assets/icons/MaterialSymbolsSearch.svg" alt="" />
+              <img class="icon" src="assets/icons/actions/refresh.svg" alt="" />
               Comprobar conexión
             </button>
-            <button type="button" class="btn btn-ghost" id="btn-demo-gate">Continuar en demo</button>
           </div>
         </div>
       </section>
@@ -78,21 +56,21 @@
       <!-- CONSOLE -->
       <section class="view" data-view="console">
         <div class="topbar">
-          <button type="button" class="icon-btn" aria-hidden="true" tabindex="-1">
-            <img class="icon" src="assets/icons/KeylineIconsMenu.svg" alt="" />
-          </button>
-          <h1>Diagnóstico</h1>
+          <div class="brand-mark" aria-hidden="true">
+            <img src="assets/icons/app/sphere_mark.svg" alt="" />
+          </div>
+          <h1>Consola</h1>
           <span class="status-chip offline" data-conn-chip><span class="dot"></span><span class="label">Sin conexión</span></span>
         </div>
 
         <div class="panel">
-          <h2>Estado general</h2>
+          <h2>Estado</h2>
           <div class="metric-grid" id="diag-metrics"></div>
         </div>
 
         <div class="panel">
-          <h2>Acciones seguras</h2>
-          <p class="muted" id="phase-note" style="margin: 0 0 12px"></p>
+          <h2>Acciones</h2>
+          <p class="muted" id="phase-note"></p>
           <div class="actions-grid" id="actions-grid"></div>
         </div>
 
@@ -107,11 +85,11 @@
         <div class="topbar">
           <h1>Archivos</h1>
           <button type="button" class="icon-btn" id="btn-refresh-files" aria-label="Actualizar">
-            <img class="icon" src="assets/icons/MaterialSymbolsSearch.svg" alt="" />
+            <img class="icon" src="assets/icons/actions/refresh.svg" alt="" />
           </button>
         </div>
         <div class="search-bar">
-          <img class="icon" src="assets/icons/MaterialSymbolsSearch.svg" alt="" />
+          <img class="icon" src="assets/icons/actions/visibility.svg" alt="" />
           <input id="file-search" type="search" placeholder="Buscar en SD…" autocomplete="off" />
         </div>
         <div class="panel" id="file-list">
@@ -119,52 +97,24 @@
         </div>
       </section>
 
-      <!-- DOWNLOADS -->
-      <section class="view" data-view="downloads">
+      <!-- MORE / settings + updates -->
+      <section class="view" data-view="more">
         <div class="topbar">
-          <h1>Descargas</h1>
+          <h1>Más</h1>
         </div>
-        <div class="panel">
-          <p class="muted" id="dl-version" style="margin-top: 0">Versión instalada: —</p>
-          <div class="dl-card">
-            <img class="icon accent" src="assets/icons/MaterialSymbolsDownload.svg" alt="" />
-            <div class="body">
-              <h3>App web (PWA)</h3>
-              <p>Instálala en el móvil para usarla sin internet cuando estés en el SoftAP de la esfera.</p>
-              <button type="button" class="btn btn-sm btn-primary" id="btn-pwa-install" style="margin-top: 10px">
-                Instalar Hydrosphere
-              </button>
-            </div>
-          </div>
-          <div class="dl-card">
-            <img class="icon accent" src="assets/icons/DeviconGoogle.svg" alt="" style="filter: none; width: 1.5rem; height: 1.5rem" />
-            <div class="body">
-              <h3>APK Android</h3>
-              <p>
-                Cuando publiquemos un release en GitHub, el APK aparecerá aquí y se notificará en el banner superior.
-                Carpeta de distribución: <code>releases/</code>.
-              </p>
-              <a class="btn btn-sm btn-ghost" style="margin-top: 10px; text-decoration: none" href="https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases" target="_blank" rel="noopener">
-                Ver releases
-              </a>
-            </div>
-          </div>
-          <div class="dl-card">
-            <img class="icon accent" src="assets/icons/BiBookHalf.svg" alt="" />
-            <div class="body">
-              <h3>SoftAP de producto</h3>
-              <p>SSID actual de laboratorio: <strong id="dl-ssid">ESP32_C6</strong>. La app privada de escritorio sigue en el repo Hydrosphere.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <!-- SETTINGS -->
-      <section class="view" data-view="settings">
-        <div class="topbar">
-          <h1>Ajustes</h1>
-        </div>
         <div class="panel">
+          <h2>Versión</h2>
+          <p class="muted" id="more-version" style="margin-top: 0">—</p>
+          <button type="button" class="btn btn-primary" id="btn-check-updates">
+            <img class="icon" src="assets/icons/actions/refresh.svg" alt="" />
+            Buscar actualizaciones
+          </button>
+          <p class="muted" id="update-status" style="margin-top: 10px"></p>
+        </div>
+
+        <div class="panel">
+          <h2>Ajustes SoftAP</h2>
           <div class="field">
             <label for="cfg-base">URL base esfera</label>
             <input id="cfg-base" type="url" spellcheck="false" />
@@ -174,37 +124,63 @@
             <input id="cfg-key" type="password" spellcheck="false" autocomplete="off" />
           </div>
           <button type="button" class="btn btn-primary" id="btn-save-settings">
-            <img class="icon" src="assets/icons/MaterialSymbolsEdit.svg" alt="" />
+            <img class="icon" src="assets/icons/actions/MaterialSymbolsSave.svg" alt="" />
             Guardar
           </button>
           <button type="button" class="btn btn-danger" id="btn-disconnect" style="margin-top: 10px">
-            Cerrar sesión / salir
+            Cerrar sesión
           </button>
-          <p class="muted" style="margin-top: 16px">
-            Contrato: <code>sphere-diagnostics-http/1</code>. Fase 1 = GET. Acciones POST (ping, recover) = Fase 2 del firmware.
+        </div>
+
+        <div class="panel" id="panel-lab-demo">
+          <h2>Laboratorio</h2>
+          <p class="muted">Simulación local sin esfera (solo desarrollo).</p>
+          <button type="button" class="btn btn-ghost" id="btn-demo-lab">
+            Activar modo demo
+          </button>
+        </div>
+
+        <div class="panel">
+          <h2>SoftAP de producto</h2>
+          <p class="muted">
+            SSID lab: <strong id="dl-ssid">ESP32_C6</strong>. Contrato
+            <code>sphere-diagnostics-http/1</code>.
           </p>
+          <a
+            class="btn btn-ghost"
+            style="text-decoration: none; margin-top: 8px"
+            href="https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases"
+            target="_blank"
+            rel="noopener"
+            >Ver releases en GitHub</a
+          >
         </div>
       </section>
 
-      <nav class="bottom-nav hidden" aria-label="Principal">
-        <button type="button" data-nav="console">
-          <img class="icon" src="assets/icons/MaterialSymbolsSettingsRounded.svg" alt="" />
+      <nav class="bottom-nav" aria-label="Principal">
+        <button type="button" data-nav="console" class="active">
+          <img class="icon" src="assets/icons/navigation/dashboard.svg" alt="" />
           Consola
         </button>
         <button type="button" data-nav="files">
-          <img class="icon" src="assets/icons/SolarFileStackLineDuotone.svg" alt="" />
+          <img class="icon" src="assets/icons/files/project.svg" alt="" />
           Archivos
         </button>
-        <button type="button" data-nav="downloads">
-          <img class="icon" src="assets/icons/MaterialSymbolsDownload.svg" alt="" />
-          App
+        <button type="button" data-nav="gate">
+          <img class="icon" src="assets/icons/actions/beacon_reachability.svg" alt="" />
+          Wi‑Fi
         </button>
-        <button type="button" data-nav="settings">
-          <img class="icon" src="assets/icons/KeylineIconsMenu.svg" alt="" />
+        <button type="button" data-nav="more">
+          <img class="icon" src="assets/icons/actions/options.svg" alt="" />
           Más
         </button>
       </nav>
     </div>
+
+    <!-- FAB instalar: solo web móvil, no instalada -->
+    <button type="button" id="fab-install" class="fab-install hidden" aria-label="Instalar app">
+      <img class="icon" src="assets/icons/actions/download.svg" alt="" />
+    </button>
 
     <div id="toast" class="toast" role="status"></div>
 

@@ -5,11 +5,12 @@
 
   const state = {
     connected: false,
-    view: "landing",
+    view: "gate",
     diag: null,
     wifi: null,
     files: [],
     pollTimer: null,
+    deferredPrompt: null,
   };
 
   const ACTIONS = [
@@ -17,40 +18,59 @@
       id: "PING_START",
       title: "Ping start",
       hint: "Pitar de forma periódica",
-      icon: "assets/icons/FePlay.svg",
+      icon: "assets/icons/actions/play.svg",
       hot: true,
     },
     {
       id: "PING_ONCE",
       title: "Ping once",
       hint: "Un solo tono acústico",
-      icon: "assets/icons/FePlay.svg",
+      icon: "assets/icons/actions/play.svg",
     },
     {
       id: "PING_STOP",
       title: "Ping stop",
       hint: "Detener emisión",
-      icon: "assets/icons/MdiDelete.svg",
+      icon: "assets/icons/actions/pause.svg",
     },
     {
       id: "SD_RECOVER",
       title: "Recuperar SD",
       hint: "Remount seguro (puede cortar Wi‑Fi)",
-      icon: "assets/icons/SolarFileStackLineDuotone.svg",
+      icon: "assets/icons/files/project.svg",
     },
     {
       id: "WIFI_RECOVER",
       title: "Recuperar Wi‑Fi",
       hint: "Reinicia SoftAP + HTTP",
-      icon: "assets/icons/MaterialSymbolsDriveFileMove.svg",
+      icon: "assets/icons/actions/refresh.svg",
     },
     {
       id: "IMU_RETRY",
       title: "Reintentar IMU",
       hint: "Retry del sensor",
-      icon: "assets/icons/MaterialSymbolsSettingsRounded.svg",
+      icon: "assets/icons/actions/loop.svg",
     },
   ];
+
+  function isStandalone() {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true ||
+      document.referrer.includes("android-app://")
+    );
+  }
+
+  function isMobileViewport() {
+    return window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
+  }
+
+  function updateInstallFab() {
+    const fab = $("#fab-install");
+    if (!fab) return;
+    const show = !isStandalone() && isMobileViewport();
+    fab.classList.toggle("hidden", !show);
+  }
 
   function toast(msg, isErr) {
     const el = $("#toast");
@@ -64,24 +84,21 @@
   function setChip(mode, label) {
     $$("[data-conn-chip]").forEach((chip) => {
       chip.className = `status-chip ${mode}`;
-      chip.querySelector(".label").textContent = label;
+      const lab = chip.querySelector(".label");
+      if (lab) lab.textContent = label;
     });
   }
 
   function showView(name) {
     state.view = name;
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
-    const landing = name === "landing";
-    $(".app-shell").classList.toggle("landing-mode", landing);
-    $(".bottom-nav").classList.toggle("hidden", landing);
     $$(".bottom-nav button").forEach((b) =>
       b.classList.toggle("active", b.dataset.nav === name)
     );
     if (name === "console" && state.connected) startPoll();
     else stopPoll();
     if (name === "files" && state.connected) refreshFiles();
-    if (name === "downloads") renderDownloads();
-    if (name === "settings") fillSettings();
+    if (name === "more") fillMore();
   }
 
   function stopPoll() {
@@ -133,16 +150,16 @@
 
     $("#diag-metrics").innerHTML = [
       metric("Esfera", d.sphere_id, "OK"),
-      metric("FSM", d.fsm_state, d.fsm_state?.includes("ERROR") ? "ERROR" : "OK"),
+      metric("FSM", d.fsm_state ?? "—", d.fsm_state?.includes?.("ERROR") ? "ERROR" : "OK"),
       metric("Modo", d.operation_mode, d.operation_mode === "ERROR" ? "ERROR" : "OK"),
-      metric("Misión", d.mission_public_state, d.mission_public_state),
+      metric("Misión", d.mission_public_state ?? "—", d.mission_public_state),
       metric("SD", `${d.sd?.status || "—"} · montada ${d.sd?.mounted ? "sí" : "no"}`, d.sd?.status),
       metric("Wi‑Fi", w?.status || (d.wifi?.http_active ? "UP" : "DOWN"), w?.status),
       metric("Canal", w?.channel_primary ?? "—", "OK"),
       metric("Clientes", w?.sta_count ?? d.wifi?.sta_count ?? "—", "OK"),
       metric("Ping", `${d.ping?.state || "—"} · seq ${d.ping?.sequence ?? 0}`, d.ping?.state),
       metric("IMU", d.imu_ready ? "lista" : "no", d.imu_ready ? "OK" : "ERROR"),
-      metric("Carga", d.charging_state, "OK"),
+      metric("Carga", d.charging_state ?? "—", "OK"),
       metric("Reset", d.reset?.reason || "—", d.reset?.reason === "PANIC" ? "ERROR" : "INFO"),
     ].join("");
 
@@ -150,22 +167,18 @@
     const phase = d.capabilities?.phase || "READ_ONLY";
     const recovery = !!d.capabilities?.recovery_actions || phase === "RECOVERY" || api.demo;
 
-    // Botones siempre pulsables en consola: si el firmware aún es Fase 1, el API
-    // devolverá PHASE2_PENDING con mensaje claro (mejor que botones muertos).
     $("#actions-grid").innerHTML = ACTIONS.map((a) => {
-      const preview = allowed.has(a.id);
-      return `<button class="action-btn ${a.hot ? "hot" : ""}" data-action="${a.id}">
+      const enabled = api.demo || recovery || allowed.has(a.id);
+      return `<button class="action-btn ${a.hot ? "hot" : ""}" data-action="${a.id}" ${enabled ? "" : "disabled"}>
         <img class="icon accent" src="${a.icon}" alt="" />
         <strong>${a.title}</strong>
-        <span class="hint">${preview || api.demo || recovery ? a.hint : a.hint + " · Fase 2"}</span>
+        <span class="hint">${a.hint}</span>
       </button>`;
     }).join("");
 
     $("#phase-note").textContent = api.demo
-      ? "Modo demo: las acciones se simulan en el navegador."
-      : recovery
-        ? `Capacidades: ${phase}. Acciones según allowed_actions del firmware.`
-        : "Fase 1 (lectura). Al pulsar una acción Fase 2 verás si el firmware ya la expone.";
+      ? "Modo demo: acciones simuladas."
+      : `Capacidades: ${phase}. Acciones según allowed_actions.`;
   }
 
   function appendLog(line) {
@@ -191,7 +204,15 @@
   async function refreshFiles() {
     try {
       const data = await api.listFiles();
-      const files = data.files || data.items || data.entries || [];
+      let files = data.files || data.items || data.entries || [];
+      if (data.sessions && data.sessions.length && !files.length) {
+        files = data.sessions.map((s) => ({
+          name: s.id || s.name,
+          path: s.path,
+          size: s.size,
+          session: true,
+        }));
+      }
       state.files = Array.isArray(files) ? files : [];
       renderFiles($("#file-search").value || "");
     } catch (err) {
@@ -215,26 +236,25 @@
         const name = f.name || f.path || f.filename || "archivo";
         const size = f.size != null ? `${Math.round(f.size / 1024)} KB` : "";
         const mtime = f.mtime || f.modified || "";
+        const icon = f.session ? "assets/icons/files/project.svg" : "assets/icons/files/log.svg";
         return `<div class="file-row">
-          <img class="icon" src="assets/icons/SolarFileStackLineDuotone.svg" alt="" />
+          <img class="icon" src="${icon}" alt="" />
           <div class="meta"><div class="name">${name}</div><div class="sub">${size} ${mtime}</div></div>
-          <button class="icon-btn" data-dl="${encodeURIComponent(name)}" title="Descargar" ${api.demo ? "disabled" : ""}>
-            <img class="icon" src="assets/icons/MaterialSymbolsDownload.svg" alt="" />
+          <button class="icon-btn" data-dl="${encodeURIComponent(f.path || name)}" title="Descargar" ${api.demo || f.session ? "disabled" : ""}>
+            <img class="icon" src="assets/icons/actions/download.svg" alt="" />
           </button>
         </div>`;
       })
       .join("");
   }
 
-  function renderDownloads() {
-    $("#dl-version").textContent = `Versión instalada: ${HydrosphereVersion.LOCAL_VERSION}`;
+  function fillMore() {
+    $("#more-version").textContent = `Versión instalada: ${HydrosphereVersion.LOCAL_VERSION}`;
     $("#dl-ssid").textContent = "ESP32_C6";
-  }
-
-  function fillSettings() {
     const cfg = HydrosphereSphereConfig.loadConfig();
     $("#cfg-base").value = cfg.baseUrl;
     $("#cfg-key").value = cfg.centralKey;
+    $("#panel-lab-demo").hidden = isStandalone();
   }
 
   async function tryConnect({ demo = false } = {}) {
@@ -242,7 +262,7 @@
     if (demo) {
       state.connected = true;
       setChip("demo", "Demo");
-      toast("Entraste en modo demo");
+      toast("Modo demo activo");
       showView("console");
       return;
     }
@@ -261,11 +281,31 @@
       toast("Sesión abierta con la esfera");
       showView("console");
     } catch (err) {
-      // Probe ok pero sesión falló (CORS/token). Ofrecer demo o reintentar.
       setChip("offline", "Auth / CORS");
       toast(err.message || "No se pudo abrir sesión", true);
       showView("gate");
       appendLog(`Sesión: ${err.message}`);
+    }
+  }
+
+  async function checkUpdatesManual() {
+    const status = $("#update-status");
+    status.textContent = "Comprobando…";
+    try {
+      const info = await HydrosphereVersion.checkForUpdates();
+      if (info.newer) {
+        status.textContent = `Nueva versión ${info.remote}: ${info.notes || ""}`;
+        const banner = $("#update-banner");
+        banner.classList.add("show");
+        $("#update-text").textContent = `Nueva versión ${info.remote}`;
+        const btn = $("#update-download");
+        if (info.downloadUrl) btn.onclick = () => window.open(info.downloadUrl, "_blank");
+        else btn.onclick = () => showView("more");
+      } else {
+        status.textContent = `Estás al día (${info.local || HydrosphereVersion.LOCAL_VERSION}).`;
+      }
+    } catch (err) {
+      status.textContent = `No se pudo comprobar: ${err.message || err}`;
     }
   }
 
@@ -279,12 +319,12 @@
       if (info.downloadUrl) {
         btn.onclick = () => window.open(info.downloadUrl, "_blank");
       } else {
-        btn.onclick = () => showView("downloads");
+        btn.onclick = () => showView("more");
       }
     }
     window.addEventListener("hs-sw-update", () => {
       banner.classList.add("show");
-      $("#update-text").textContent = "Hay una versión nueva de la app en caché. Recarga para aplicarla.";
+      $("#update-text").textContent = "Hay una versión nueva en caché. Recarga para aplicarla.";
       $("#update-download").textContent = "Recargar";
       $("#update-download").onclick = () => location.reload();
     });
@@ -293,24 +333,38 @@
   function registerSW() {
     if (!("serviceWorker" in navigator)) return;
     if (location.protocol !== "https:" && location.protocol !== "http:") return;
-    if (location.hostname === "localhost" || location.protocol === "https:" || location.hostname.endsWith("github.io")) {
+    if (
+      location.hostname === "localhost" ||
+      location.protocol === "https:" ||
+      location.hostname.endsWith("github.io")
+    ) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
   }
 
+  async function promptInstall() {
+    if (state.deferredPrompt) {
+      state.deferredPrompt.prompt();
+      await state.deferredPrompt.userChoice;
+      state.deferredPrompt = null;
+      updateInstallFab();
+      return;
+    }
+    toast("iOS: Compartir → Añadir a pantalla de inicio. Android: menú → Instalar app.");
+  }
+
   function bind() {
-    $("#btn-enter").addEventListener("click", () => tryConnect({ demo: false }));
-    $("#btn-demo").addEventListener("click", () => tryConnect({ demo: true }));
-    $("#btn-install").addEventListener("click", () => showView("downloads"));
     $("#btn-retry-wifi").addEventListener("click", () => tryConnect({ demo: false }));
-    $("#btn-demo-gate").addEventListener("click", () => tryConnect({ demo: true }));
-    $("#btn-back-landing").addEventListener("click", () => showView("landing"));
+    $("#btn-demo-lab")?.addEventListener("click", () => tryConnect({ demo: true }));
+    $("#btn-check-updates").addEventListener("click", checkUpdatesManual);
+    $("#fab-install").addEventListener("click", promptInstall);
 
     $$(".bottom-nav button").forEach((b) =>
       b.addEventListener("click", () => {
         const target = b.dataset.nav;
         if ((target === "console" || target === "files") && !state.connected) {
           showView("gate");
+          toast("Conéctate a la esfera primero");
           return;
         }
         showView(target);
@@ -321,6 +375,13 @@
       const btn = e.target.closest("[data-action]");
       if (!btn || btn.disabled) return;
       onAction(btn.dataset.action);
+    });
+
+    $("#file-list").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-dl]");
+      if (!btn || btn.disabled) return;
+      const path = decodeURIComponent(btn.dataset.dl);
+      downloadFile(path);
     });
 
     $("#file-search").addEventListener("input", (e) => renderFiles(e.target.value));
@@ -342,37 +403,65 @@
       api.setDemo(false);
       stopPoll();
       setChip("offline", "Desconectado");
-      showView("landing");
+      showView("gate");
       toast("Sesión cerrada");
     });
 
-    let deferredPrompt = null;
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
-      deferredPrompt = e;
-      $("#btn-pwa-install").hidden = false;
+      state.deferredPrompt = e;
+      updateInstallFab();
     });
-    $("#btn-pwa-install").addEventListener("click", async () => {
-      if (!deferredPrompt) {
-        toast("En iOS: Compartir → Añadir a pantalla de inicio. En Android: menú del navegador → Instalar app.");
-        return;
-      }
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
+
+    window.addEventListener("appinstalled", () => {
+      state.deferredPrompt = null;
+      updateInstallFab();
+      toast("App instalada");
     });
+
+    window.addEventListener("resize", updateInstallFab);
+  }
+
+  async function downloadFile(path) {
+    try {
+      await api.ensureSession();
+      const cfg = HydrosphereSphereConfig.loadConfig();
+      const url = `${cfg.baseUrl.replace(/\/$/, "")}/api/v1/file?path=${encodeURIComponent(path)}`;
+      const res = await fetch(url, {
+        headers: { "X-Hydro-Token": api.token },
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`download ${res.status}`);
+      const blob = await res.blob();
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = path.split("/").pop() || "file";
+      a.click();
+      URL.revokeObjectURL(u);
+      toast(`Descarga ${path}`);
+    } catch (err) {
+      toast(err.message, true);
+    }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    // loop.svg may be missing — copy fallback for IMU
+    ACTIONS.forEach((a) => {
+      if (a.id === "IMU_RETRY") a.icon = "assets/icons/actions/refresh.svg";
+    });
+
     bind();
     setChip("offline", "Sin conexión");
-    showView("landing");
+    showView("gate");
+    updateInstallFab();
     registerSW();
     initVersionBanner();
-    // Si ya estamos en SoftAP al abrir la PWA, auto-probe suave
+
     api.probe().then((p) => {
       if (p.ok && !api.demo) {
         setChip("online", "Esfera al alcance");
+        tryConnect({ demo: false });
       }
     });
   });

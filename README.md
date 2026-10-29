@@ -27,7 +27,9 @@ npx --yes serve .
 # o: python -m http.server 8080
 ```
 
-Abre `http://localhost:8080` y usa **Probar en demo** si no tienes esfera.
+Abre `http://localhost:8080`. La consola es la UI por defecto (nav inferior). El modo demo solo está en **Más → Laboratorio** (oculto si la PWA ya está instalada).
+
+En **web móvil** (navegador, no instalada) aparece un **FAB circular** abajo a la derecha para instalar.
 
 ## Contrato API
 
@@ -39,7 +41,7 @@ Basado en el documento *API SPHERE* (`sphere-diagnostics-http/1`):
 | **2** | POSTs seguros: `PING_*`, `SD_RECOVER`, `WIFI_RECOVER`, … |
 | **4** | OTA (fuera de alcance ahora) |
 
-La UI ya incluye botones de Fase 2. Si el firmware aún no registra esos POST, la app muestra un error claro (`PHASE2_PENDING`). Hoy `PING_START` existe por **UART**; el wire HTTP de acción es el siguiente paso en firmware.
+La UI incluye botones de Fase 2; el firmware en `feat/sphere-diagnostics-http` ya expone los POST de ping/recover. Iconos y colores alineados a la app de escritorio Hydrosphere (`assets/icons` copiados desde allí).
 
 Defaults SoftAP de producto (lab):
 
