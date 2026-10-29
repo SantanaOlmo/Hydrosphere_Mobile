@@ -4,7 +4,7 @@
 (function (global) {
   const LOCAL_VERSION = "0.1.0";
   const GH_RELEASES =
-    "https://api.github.com/repos/ennde3d/Hydrosphere_Mobile/releases/latest";
+    "https://api.github.com/repos/SantanaOlmo/Hydrosphere_Mobile/releases/latest";
 
   function cmpSemver(a, b) {
     const pa = String(a).replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);

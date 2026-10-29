@@ -51,7 +51,7 @@ Defaults SoftAP de producto (lab):
 
 1. Settings → Pages → Source: **GitHub Actions** (workflow incluido).
 2. Tras el push a `main`, la web queda en:
-   `https://ennde3d.github.io/Hydrosphere_Mobile/`
+   `https://santanaolmo.github.io/Hydrosphere_Mobile/`
 
 ## Nuevas versiones
 
