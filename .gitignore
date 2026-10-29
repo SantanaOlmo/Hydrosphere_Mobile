@@ -12,7 +12,7 @@ local.properties
 *.iml
 *.apk
 !releases/.gitkeep
-!releases/*.apk
+releases_ci/
 .capacitor/
 android/.gradle/
 android/build/
@@ -20,3 +20,5 @@ android/app/build/
 android/captures/
 android/local.properties
 android/.idea/
+
+releases_ci/

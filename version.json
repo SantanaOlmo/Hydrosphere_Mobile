@@ -6,7 +6,7 @@
   "notes": "App Android (Capacitor) con SoftAP HTTP. La web Pages sigue siendo solo distribución.",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/latest",
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.0/hydrosphere-mobile-0.3.0-debug.apk",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",
