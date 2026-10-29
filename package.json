@@ -1,11 +1,12 @@
 {
   "name": "hydrosphere-mobile",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Hydrosphere SoftAP console (web + Capacitor Android)",
   "scripts": {
+    "icons": "node scripts/render_sphr_icon.js && python scripts/gen_icons.py",
     "sync:www": "node scripts/sync-www.js",
-    "cap:sync": "npm run sync:www && npx cap sync android",
+    "cap:sync": "npm run icons && npm run sync:www && npx cap sync android",
     "cap:open": "npx cap open android",
     "android:sync": "npm run cap:sync",
     "android:open": "npm run cap:open",
@@ -19,6 +20,7 @@
     "@capacitor/core": "^6.2.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0"
+    "@capacitor/cli": "^6.2.0",
+    "@resvg/resvg-js": "^2.6.2"
   }
 }
