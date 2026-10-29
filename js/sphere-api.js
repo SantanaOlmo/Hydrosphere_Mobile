@@ -84,6 +84,33 @@
     async probe() {
       if (this.demo) return { ok: true, demo: true };
       const url = `${this.config.baseUrl.replace(/\/$/, "")}/api/v1/status`;
+
+      // APK: HTTP nativo (no depende de CORS del WebView)
+      try {
+        const native =
+          window.Capacitor &&
+          typeof window.Capacitor.isNativePlatform === "function" &&
+          window.Capacitor.isNativePlatform();
+        const Http = window.Capacitor && (window.Capacitor.Plugins || {}).CapacitorHttp;
+        if (native && Http && typeof Http.request === "function") {
+          const res = await Http.request({
+            url,
+            method: "GET",
+            connectTimeout: this.config.timeoutMs,
+            readTimeout: this.config.timeoutMs,
+            headers: { Accept: "application/json" },
+          });
+          const status = res.status || 0;
+          return {
+            ok: status > 0 && status < 500,
+            status,
+            native: true,
+          };
+        }
+      } catch (err) {
+        return { ok: false, error: String(err && err.message ? err.message : err), native: true };
+      }
+
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), this.config.timeoutMs);
       try {
@@ -97,7 +124,6 @@
         return { ok: res.ok || res.status === 401 || res.status === 403, status: res.status };
       } catch (err) {
         clearTimeout(t);
-        // Algunos firmwares pueden no exponer CORS; intento sin-cors solo como reachability
         try {
           const ctrl2 = new AbortController();
           const t2 = setTimeout(() => ctrl2.abort(), 2500);

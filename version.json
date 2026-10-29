@@ -1,12 +1,12 @@
-{
-  "version": "0.3.0",
-  "build": 6,
+﻿{
+  "version": "0.3.1",
+  "build": 7,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "App Android (Capacitor) con SoftAP HTTP. La web Pages sigue siendo solo distribución.",
+  "notes": "Mejor probe SoftAP (HTTP nativo) y aviso de datos móviles.",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.0/hydrosphere-mobile-0.3.0-debug.apk",
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.1/hydrosphere-mobile-0.3.1-debug.apk",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

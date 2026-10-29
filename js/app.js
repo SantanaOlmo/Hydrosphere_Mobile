@@ -313,7 +313,10 @@
     if (!probe.ok) {
       setChip("offline", "Sin esfera");
       showView("gate");
-      toast("No se alcanza http://192.168.4.1 — conéctate al SoftAP", true);
+      toast(
+        "No se alcanza 192.168.4.1. Comprueba Wi‑Fi ESP32_C6 y apaga los datos móviles.",
+        true
+      );
       return;
     }
     try {
