@@ -123,40 +123,57 @@
       this.config = loadConfig();
     }
 
-    async probe() {
+    async probe(opts = {}) {
       if (this.demo) return { ok: true, demo: true };
+      const attempts = Math.max(1, opts.attempts || 3);
       const url = `${this.config.baseUrl.replace(/\/$/, "")}/api/v1/status`;
-      try {
-        const { status, data } = await this._http("GET", url, {
-          headers: { Accept: "application/json" },
-          auth: false,
-          expectJson: true,
-        });
-        const body = parseBody(data);
-        const sphere = looksLikeSphereStatus(body);
-        const ok = status === 200 && sphere;
-        return {
-          ok,
-          status,
-          sphere,
-          native: isNative(),
-          body,
-          hint: !ok
-            ? status === 0 || !status
-              ? "unreachable"
-              : sphere
-                ? "bad_status"
-                : "not_sphere"
-            : null,
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          error: String(err && err.message ? err.message : err),
-          native: isNative(),
-          hint: "unreachable",
-        };
+      const started = Date.now();
+      let last = null;
+
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const { status, data } = await this._http("GET", url, {
+            headers: { Accept: "application/json" },
+            auth: false,
+            expectJson: true,
+          });
+          const body = parseBody(data);
+          const sphere = looksLikeSphereStatus(body);
+          const ok = status === 200 && sphere;
+          last = {
+            ok,
+            status,
+            sphere,
+            native: isNative(),
+            body,
+            attempt: i + 1,
+            attempts,
+            elapsedMs: Date.now() - started,
+            hint: !ok
+              ? status === 0 || !status
+                ? "unreachable"
+                : sphere
+                  ? "bad_status"
+                  : "not_sphere"
+              : null,
+          };
+          if (ok) return last;
+        } catch (err) {
+          last = {
+            ok: false,
+            error: String(err && err.message ? err.message : err),
+            native: isNative(),
+            attempt: i + 1,
+            attempts,
+            elapsedMs: Date.now() - started,
+            hint: "unreachable",
+          };
+        }
+        if (i < attempts - 1) {
+          await new Promise((r) => setTimeout(r, 700));
+        }
       }
+      return last || { ok: false, hint: "unreachable", elapsedMs: Date.now() - started };
     }
 
     async openSession() {

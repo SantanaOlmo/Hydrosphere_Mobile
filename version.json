@@ -1,12 +1,12 @@
 ﻿{
-  "version": "0.3.3",
-  "build": 9,
+  "version": "0.3.4",
+  "build": 10,
   "released_at": "2026-10-29",
   "channel": "public",
-  "notes": "Loader btn-dots en Comprobar; SoftAP CapacitorHttp estricto; sin falso «se perdió».",
+  "notes": "Plugin SoftApNetwork: bind Android al SoftAP 192.168.4.x (PC sí / app no).",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.3/hydrosphere-mobile-0.3.3-debug.apk",
+    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.4/hydrosphere-mobile-0.3.4-debug.apk",
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

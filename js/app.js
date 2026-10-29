@@ -315,14 +315,24 @@
     $("#panel-lab-demo").hidden = isStandalone();
   }
 
-  function probeFailMessage(probe) {
+  function probeFailMessage(probe, bindInfo) {
     if (probe.hint === "not_sphere") {
       return "Hay respuesta en 192.168.4.1 pero no es la esfera. ¿Wi‑Fi correcto (ESP32_C6)?";
     }
-    if (isNativeApp()) {
-      return "No se alcanza la esfera en 192.168.4.1. Wi‑Fi ESP32_C6 + datos móviles OFF (o avión + solo Wi‑Fi SoftAP).";
+    if (bindInfo && bindInfo.reason === "no_softap_wifi") {
+      return (
+        bindInfo.hint ||
+        "El móvil no está en la Wi‑Fi SoftAP (sin IP 192.168.4.x). Únete a ESP32_C6."
+      );
     }
-    return "No se alcanza http://192.168.4.1 — conéctate al SoftAP ESP32_C6 y apaga datos móviles.";
+    if (isNativeApp()) {
+      const detail =
+        (bindInfo && bindInfo.detail) ||
+        (probe.error ? String(probe.error) : `HTTP ${probe.status || 0}`);
+      const ms = probe.elapsedMs != null ? `${probe.elapsedMs} ms` : "";
+      return `No llega HTTP a la esfera (${detail}${ms ? " · " + ms : ""}). PC sí / Android no = enrutado. Revisa Wi‑Fi ESP32_C6.`;
+    }
+    return "No se alcanza http://192.168.4.1 — conéctate al SoftAP ESP32_C6.";
   }
 
   async function tryConnect({ demo = false } = {}) {
@@ -349,14 +359,31 @@
     state.pollFails = 0;
     stopPoll();
     Busy().set(btn, true, { busyLabel: "Comprobando conexión" });
-    setChip("offline", "Comprobando…");
+    setChip("offline", "Enlazando Wi‑Fi…");
 
+    let bindInfo = null;
     try {
-      const probe = await api.probe();
+      // Crítico en Android: sin bind, el SoftAP sin internet no recibe el HTTP de la app.
+      if (window.HydrosphereSoftApNetwork) {
+        bindInfo = await HydrosphereSoftApNetwork.bindToSoftAp();
+        appendLog(`SoftAP bind: ${JSON.stringify(bindInfo)}`);
+        if (bindInfo && bindInfo.ok === false && bindInfo.reason === "no_softap_wifi") {
+          setChip("offline", "Sin SoftAP");
+          showView("gate");
+          toast(probeFailMessage({ hint: "unreachable" }, bindInfo), true);
+          return;
+        }
+      }
+
+      setChip("offline", "Comprobando…");
+      const probe = await api.probe({ attempts: 3 });
+      appendLog(
+        `Probe: ok=${!!probe.ok} status=${probe.status || 0} attempt=${probe.attempt || 1}/${probe.attempts || 1} ${probe.elapsedMs || 0}ms`
+      );
       if (!probe.ok) {
         setChip("offline", "Sin esfera");
         showView("gate");
-        toast(probeFailMessage(probe), true);
+        toast(probeFailMessage(probe, bindInfo), true);
         return;
       }
 
