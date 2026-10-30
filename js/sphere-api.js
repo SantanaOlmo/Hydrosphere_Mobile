@@ -6,11 +6,19 @@
 (function (global) {
   const DEFAULTS = {
     baseUrl: "http://192.168.4.1",
-    // Lab actual (Hydrosphere_Project / Dev UI): RonaldinhoClub10
-    // Firmware nuevo (feat/sphere-diagnostics-http): HYDRO_CENTRAL_DEV_KEY_CHANGE_ME
-    centralKey: "RonaldinhoClub10",
+    // Sin clave embebida: el técnico la configura en Más → Ajustes.
+    centralKey: "",
     timeoutMs: 8000,
   };
+
+  const Diag =
+    global.HydrosphereDiagContract ||
+    {
+      ACTION_PATHS: {},
+      isSupportedAction: () => false,
+      actionTimeoutMs: () => 8000,
+      formatDiagError: (e) => (e && e.message) || "Error",
+    };
 
   function loadConfig() {
     try {
@@ -102,13 +110,18 @@
         ping: { state: "IDLE", periodic_active: false, sequence: 0 },
         reset: { reason: "POWERON", reason_code: 1 },
         imu_ready: true,
+        capabilities: {
+          phase: "RECOVERY",
+          recovery_actions: true,
+          ota: false,
+        },
         allowed_actions: [
-          "SD_RECOVER",
-          "WIFI_RECOVER",
-          "IMU_RETRY",
           "PING_ONCE",
           "PING_START",
           "PING_STOP",
+          "IMU_RETRY",
+          "MISSION_CLEAR_ERROR",
+          "SD_RECOVER",
         ],
         files: [
           { name: "mission_001/imu.csv", size: 482112, mtime: "2026-10-28T18:02:11Z" },
@@ -186,8 +199,14 @@
         sessionStorage.setItem("hs_mobile_token", this.token);
         return { token: this.token };
       }
+      const key = String(this.config.centralKey || "").trim();
+      if (!key) {
+        throw new Error(
+          "Falta la central key. Configúrala en Más → Ajustes SoftAP."
+        );
+      }
       const body = await this._request("POST", "/api/v1/session/open", {
-        headers: { "X-Hydro-Central-Key": this.config.centralKey },
+        headers: { "X-Hydro-Central-Key": key },
         auth: false,
       });
       const token = body.token || body.session_token || body.download_token;
@@ -385,17 +404,19 @@
     }
 
     async runAction(action) {
-      const map = {
-        PING_ONCE: { method: "POST", path: "/api/v1/diagnostics/ping/once" },
-        PING_START: { method: "POST", path: "/api/v1/diagnostics/ping/start" },
-        PING_STOP: { method: "POST", path: "/api/v1/diagnostics/ping/stop" },
-        SD_RECOVER: { method: "POST", path: "/api/v1/diagnostics/sd/recover" },
-        WIFI_RECOVER: { method: "POST", path: "/api/v1/diagnostics/wifi/recover" },
-        IMU_RETRY: { method: "POST", path: "/api/v1/diagnostics/imu/retry" },
-        MISSION_CLEAR_ERROR: { method: "POST", path: "/api/v1/diagnostics/mission/clear_error" },
-      };
-      const spec = map[action];
-      if (!spec) throw new Error(`Acción desconocida: ${action}`);
+      if (action === "WIFI_RECOVER") {
+        const err = new Error(
+          "WIFI_RECOVER no está disponible por HTTP en este firmware (usar UART)."
+        );
+        err.code = "WIFI_RECOVER_HTTP_DISABLED";
+        err.status = 404;
+        throw err;
+      }
+
+      const path = Diag.ACTION_PATHS[action];
+      if (!path || !Diag.isSupportedAction(action)) {
+        throw new Error(`Acción desconocida o no soportada: ${action}`);
+      }
 
       if (this.demo) {
         return this._demoAction(action);
@@ -406,7 +427,9 @@
       // Lab legacy: ping 1x en ruta distinta
       if (this.apiFlavor === "legacy" && action === "PING_ONCE") {
         try {
-          return await this._request("POST", "/api/v1/diag/acoustic_ping_once", { body: {} });
+          return await this._request("POST", "/api/v1/diag/acoustic_ping_once", {
+            body: {},
+          });
         } catch (err) {
           if (this._isMissingRoute(err)) {
             throw new Error("Ping diag no disponible en este firmware.");
@@ -415,14 +438,28 @@
         }
       }
 
+      const timeoutMs = Diag.actionTimeoutMs(action);
       try {
-        return await this._request(spec.method, spec.path, { body: {} });
+        return await this._request("POST", path, { body: {}, timeoutMs });
       } catch (err) {
-        if (this._isMissingRoute(err) || /405|Method Not Allowed/i.test(String(err.message))) {
+        // 409/503 del contrato d8ed914: no confundir con ruta ausente.
+        if (err && (err.status === 409 || err.status === 503)) {
+          err.message = Diag.formatDiagError(err);
+          throw err;
+        }
+        if (err && (err.status === 401 || err.status === 403)) {
+          err.message = Diag.formatDiagError(err);
+          throw err;
+        }
+        if (
+          this._isMissingRoute(err) ||
+          /405|Method Not Allowed/i.test(String(err.message))
+        ) {
           const err2 = new Error(
             `${action}: ruta no disponible en este firmware (¿falta flashear diagnostics HTTP?).`
           );
           err2.code = "PHASE2_PENDING";
+          err2.status = err.status;
           throw err2;
         }
         throw err;
@@ -451,25 +488,62 @@
       }
       if (action === "SD_RECOVER") {
         s.sd = { mounted: true, health: "HEALTHY", write_ok: true, status: "OK" };
-        return { ok: true, action, demo: true, message: "SD recuperada (demo)" };
-      }
-      if (action === "WIFI_RECOVER") {
         return {
-          ok: true,
-          action,
+          api_version: "1",
+          protocol_version: "sphere-diagnostics-http/1",
+          action: "SD_RECOVER",
+          accepted: true,
+          result: "OK",
+          message: "SD recuperada (demo, síncrono, SoftAP conservado)",
+          job: null,
           demo: true,
-          message: "Wi‑Fi recover aceptado (demo). En hardware real la app debe reconectar.",
         };
       }
       if (action === "IMU_RETRY") {
         s.imu_ready = true;
-        return { ok: true, action, demo: true, message: "IMU reintentado (demo)" };
+        return {
+          api_version: "1",
+          protocol_version: "sphere-diagnostics-http/1",
+          action: "IMU_RETRY",
+          accepted: true,
+          result: "OK",
+          message: "IMU reintentado (demo)",
+          job: null,
+          demo: true,
+        };
       }
-      return { ok: true, action, demo: true };
+      if (action === "MISSION_CLEAR_ERROR") {
+        s.fsm_state = "DOCKED_IDLE";
+        s.mission_public_state = "IDLE";
+        return {
+          api_version: "1",
+          protocol_version: "sphere-diagnostics-http/1",
+          action: "MISSION_CLEAR_ERROR",
+          accepted: true,
+          result: "OK",
+          message: "Error de misión limpiado (demo)",
+          job: null,
+          demo: true,
+        };
+      }
+      return {
+        api_version: "1",
+        protocol_version: "sphere-diagnostics-http/1",
+        action,
+        accepted: true,
+        result: "OK",
+        message: `${action} OK (demo)`,
+        job: null,
+        demo: true,
+      };
     }
 
     async _http(method, url, opts = {}) {
-      const { headers = {}, body, auth = true } = opts;
+      const { headers = {}, body, auth = true, timeoutMs } = opts;
+      const timeout =
+        typeof timeoutMs === "number" && timeoutMs > 0
+          ? timeoutMs
+          : this.config.timeoutMs;
       const h = {
         Accept: "application/json",
         ...headers,
@@ -484,14 +558,14 @@
           method,
           headers: h,
           data: body !== undefined ? body : undefined,
-          connectTimeout: this.config.timeoutMs,
-          readTimeout: this.config.timeoutMs,
+          connectTimeout: timeout,
+          readTimeout: timeout,
         });
         return { status: res.status || 0, data: res.data };
       }
 
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), this.config.timeoutMs);
+      const t = setTimeout(() => ctrl.abort(), timeout);
       try {
         const res = await fetch(url, {
           method,
@@ -524,6 +598,10 @@
 
       if (!status || status < 200 || status >= 300) {
         const code = data && data.error && data.error.code;
+        const retryable =
+          data && data.error && typeof data.error.retryable === "boolean"
+            ? data.error.retryable
+            : undefined;
         const msg =
           (data && data.error && data.error.message) ||
           data?.message ||
@@ -532,6 +610,7 @@
         const e = new Error(msg);
         e.status = status;
         e.code = code;
+        e.retryable = retryable;
         e.payload = data;
         if (status === 401 || status === 403) {
           this.clearSession();
