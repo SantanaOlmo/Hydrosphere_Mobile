@@ -17,11 +17,13 @@
     deferredPrompt: null,
   };
 
+  const Diag = () => window.HydrosphereDiagContract;
+
   const ACTIONS = [
     {
       id: "PING_START",
       title: "Ping start",
-      hint: "Pitar de forma periódica",
+      hint: "Pitar de forma periódica (bloqueado si hay grabación)",
       icon: "assets/icons/actions/play.svg",
       hot: true,
     },
@@ -34,26 +36,26 @@
     {
       id: "PING_STOP",
       title: "Ping stop",
-      hint: "Detener emisión",
+      hint: "Detener emisión (también bloqueado en grabación)",
       icon: "assets/icons/actions/pause.svg",
     },
     {
       id: "SD_RECOVER",
       title: "Recuperar SD",
-      hint: "Remount seguro (puede cortar Wi‑Fi)",
+      hint: "Remount seguro síncrono (SoftAP se conserva)",
       icon: "assets/icons/files/project.svg",
-    },
-    {
-      id: "WIFI_RECOVER",
-      title: "Recuperar Wi‑Fi",
-      hint: "Reinicia SoftAP + HTTP",
-      icon: "assets/icons/actions/refresh.svg",
     },
     {
       id: "IMU_RETRY",
       title: "Reintentar IMU",
-      hint: "Retry del sensor",
+      hint: "Solo en DOCKED_IDLE con carga PRESENT",
       icon: "assets/icons/actions/loop.svg",
+    },
+    {
+      id: "MISSION_CLEAR_ERROR",
+      title: "Limpiar error misión",
+      hint: "Solo DOCKED_ERROR + carga PRESENT",
+      icon: "assets/icons/actions/refresh.svg",
     },
   ];
 
@@ -221,12 +223,15 @@
       metric("Reset", d.reset?.reason || "—", d.reset?.reason === "PANIC" ? "ERROR" : "INFO"),
     ].join("");
 
-    const allowed = new Set(d.allowed_actions || []);
+    const allowedList = d.allowed_actions || [];
     const phase = d.capabilities?.phase || "READ_ONLY";
-    const recovery = !!d.capabilities?.recovery_actions || phase === "RECOVERY" || api.demo;
+    const contract = Diag();
 
     $("#actions-grid").innerHTML = ACTIONS.map((a) => {
-      const enabled = api.demo || recovery || allowed.has(a.id);
+      // Contrato d8ed914: solo allowed_actions (WIFI_RECOVER no está en ACTIONS).
+      const enabled = contract
+        ? contract.isActionEnabled(a.id, allowedList)
+        : allowedList.indexOf(a.id) >= 0;
       return `<button class="action-btn ${a.hot ? "hot" : ""}" data-action="${a.id}" ${enabled ? "" : "disabled"}>
         <img class="icon accent" src="${a.icon}" alt="" />
         <strong>${a.title}</strong>
@@ -235,10 +240,10 @@
     }).join("");
 
     $("#phase-note").textContent = api.demo
-      ? "Modo demo: acciones simuladas."
+      ? "Modo demo (contrato d8ed914): sin WIFI_RECOVER HTTP."
       : api.apiFlavor === "legacy" || d._legacy
         ? "Firmware lab (Dev UI): sin diagnostics HTTP. Archivos/sesión OK; acciones limitadas."
-        : `Capacidades: ${phase}. Acciones según allowed_actions.`;
+        : `Capacidades: ${phase}. Botones = allowed_actions (WIFI_RECOVER no HTTP).`;
   }
 
   function appendLog(line) {
@@ -255,9 +260,21 @@
       appendLog(`✓ ${msg}`);
       toast(msg);
       await refreshConsole();
+      if (action === "SD_RECOVER" && state.connected) {
+        try {
+          await refreshFiles();
+        } catch {
+          /* consola ya refrescada */
+        }
+      }
     } catch (err) {
-      appendLog(`✗ ${err.message}`);
-      toast(err.message, true);
+      const contract = Diag();
+      const msg = contract ? contract.formatDiagError(err) : err.message;
+      appendLog(`✗ ${msg}${err.code ? ` [${err.code}]` : ""}`);
+      toast(msg, true);
+      if (err.status === 401 || err.status === 403) {
+        dropToGate(msg, true);
+      }
     }
   }
 
@@ -352,6 +369,15 @@
     if (applyMixedContentGate()) {
       showView("gate");
       toast("Abre http://192.168.4.1 — esta web HTTPS no puede llamar al SoftAP HTTP", true);
+      return;
+    }
+
+    api.reloadConfig();
+    const key = String(api.config.centralKey || "").trim();
+    if (!key) {
+      showView("more");
+      fillMore();
+      toast("Configura la central key en Más → Ajustes SoftAP (sin valor por defecto).", true);
       return;
     }
 
