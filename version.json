@@ -1,12 +1,12 @@
 {
-  "version": "0.3.7",
-  "build": 13,
-  "released_at": "2026-10-29",
+  "version": "0.3.8",
+  "build": 14,
+  "released_at": "2026-10-30",
   "channel": "public",
-  "notes": "Fix banner falso (LOCAL_VERSION). Actualizar en APK abre descarga. Navbar con degradado bg→transparente.",
+  "notes": "Adaptacion contrato Sphere d8ed914: allowed_actions, sin WIFI_RECOVER HTTP, sin clave por defecto, SD sync timeout. Candidato no validado en hardware.",
   "downloads": {
     "pwa": "./",
-    "android_apk": "https://github.com/SantanaOlmo/Hydrosphere_Mobile/releases/download/v0.3.7/hydrosphere-mobile-0.3.7-debug.apk",
+    "android_apk": null,
     "ios": null
   },
   "sphere_base_url": "http://192.168.4.1",

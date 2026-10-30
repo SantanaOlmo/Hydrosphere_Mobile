@@ -1,6 +1,6 @@
 {
   "name": "hydrosphere-mobile",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "private": true,
   "description": "Hydrosphere SoftAP console (web + Capacitor Android)",
   "scripts": {

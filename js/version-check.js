@@ -4,7 +4,7 @@
  * En Capacitor/APK «Actualizar» abre la URL del APK (no basta con recargar).
  */
 (function (global) {
-  const LOCAL_VERSION = "0.3.7";
+  const LOCAL_VERSION = "0.3.8";
   const GH_RELEASES =
     "https://api.github.com/repos/SantanaOlmo/Hydrosphere_Mobile/releases/latest";
 
